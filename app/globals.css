@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+:root {
+  --canvas: #edf1ef;
+  --surface: #fbfcfa;
+  --field: #f1f4f2;
+  --soft: #e4efeb;
+  --ink: #17211f;
+  --muted: #687470;
+  --line: #dce4e0;
+  --accent: #087f75;
+  --accent-ink: #ffffff;
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+* { box-sizing: border-box; }
+html { background: var(--canvas); }
+body { margin: 0; background: var(--canvas); color: var(--ink); font-family: var(--font-geist-sans), "PingFang SC", "Microsoft YaHei", sans-serif; }
+button, input { font: inherit; }
+button { cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --canvas: #0b100f;
+    --surface: #101715;
+    --field: #17201e;
+    --soft: #18312d;
+    --ink: #edf5f1;
+    --muted: #9aa9a4;
+    --line: #26322f;
+    --accent: #35b7aa;
+    --accent-ink: #071513;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+}
