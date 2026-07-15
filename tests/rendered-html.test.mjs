@@ -39,6 +39,8 @@ test("server-renders the Shenzhen tour guide mobile app", async () => {
 
 test("contains the complete Shenzhen dataset and mobile app shell", async () => {
   const data = await readFile(new URL("../app/data.ts", import.meta.url), "utf8");
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const bilingualModule = await readFile(new URL("../app/bilingual.ts", import.meta.url), "utf8");
   const bilingual = JSON.parse(await readFile(new URL("../app/bilingual-data.json", import.meta.url), "utf8"));
   const manifest = JSON.parse(await readFile(new URL("../public/manifest.webmanifest", import.meta.url), "utf8"));
   const serviceWorker = await readFile(new URL("../public/sw.js", import.meta.url), "utf8");
@@ -57,4 +59,7 @@ test("contains the complete Shenzhen dataset and mobile app shell", async () => 
   assert.equal(bilingual.places.reduce((sum, place) => sum + place.zh.length, 0), 204);
   assert.equal(bilingual.places.reduce((sum, place) => sum + place.ko.length, 0), 214);
   assert.ok(bilingual.places.every((place) => /[가-힣]/.test(place.ko.join(" "))));
+  assert.match(bilingualModule, /Language = "zh" \| "ko"/);
+  assert.match(page, /\["zh", "ko"\]/);
+  assert.doesNotMatch(page, /speechSynthesis|SpeechSynthesisUtterance|Headphones|播放完整讲解|中文语音|한국어 음성|"dual"/);
 });

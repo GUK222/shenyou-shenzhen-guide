@@ -1,6 +1,6 @@
 import source from "./bilingual-data.json";
 
-export type Language = "zh" | "ko" | "dual";
+export type Language = "zh" | "ko";
 
 export type GuidePlace = {
   id: number;

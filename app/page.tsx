@@ -14,7 +14,6 @@ import {
   Compass,
   DownloadSimple,
   Footprints,
-  Headphones,
   House,
   Info,
   MapPin,
@@ -114,10 +113,7 @@ function normaliseState(input: Partial<AppState>): AppState {
     ]),
   );
   return {
-    language:
-      input.language === "ko" || input.language === "dual"
-        ? input.language
-        : "zh",
+    language: input.language === "ko" ? "ko" : "zh",
     saved: validIds(input.saved),
     visited: validIds(input.visited),
     recent: validIds(input.recent).slice(0, 8),
@@ -329,7 +325,6 @@ export default function Home() {
   const [selectedRoute, setSelectedRoute] = useState<TourRoute | null>(null);
   const [savedView, setSavedView] = useState<SavedView>("favorites");
   const [infoOpen, setInfoOpen] = useState(false);
-  const [speakingId, setSpeakingId] = useState<number | null>(null);
   const [narrationExpanded, setNarrationExpanded] = useState(false);
   const [toast, setToast] = useState("");
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(
@@ -423,8 +418,6 @@ export default function Home() {
     return () => {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", closeOnEscape);
-      window.speechSynthesis?.cancel();
-      setSpeakingId(null);
     };
   }, [selectedPlace, selectedRoute, infoOpen]);
 
@@ -473,8 +466,6 @@ export default function Home() {
 
   function setLanguage(next: Language) {
     setAppState((current) => ({ ...current, language: next }));
-    window.speechSynthesis?.cancel();
-    setSpeakingId(null);
   }
 
   function closeOverlays() {
@@ -544,32 +535,6 @@ export default function Home() {
       [plan[index], plan[target]] = [plan[target], plan[index]];
       return { ...current, plan };
     });
-  }
-
-  function speak(place: Place, speechLanguage: "zh" | "ko") {
-    if (!("speechSynthesis" in window)) {
-      showToast(
-        tx("当前浏览器不支持语音", "현재 브라우저는 음성을 지원하지 않습니다"),
-      );
-      return;
-    }
-    if (speakingId === place.id) {
-      window.speechSynthesis.cancel();
-      setSpeakingId(null);
-      return;
-    }
-    const guide = guideFor(place.id);
-    if (!guide) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(
-      (speechLanguage === "ko" ? guide.ko : guide.zh).join(" "),
-    );
-    utterance.lang = speechLanguage === "ko" ? "ko-KR" : "zh-CN";
-    utterance.rate = 0.92;
-    utterance.onend = () => setSpeakingId(null);
-    utterance.onerror = () => setSpeakingId(null);
-    setSpeakingId(place.id);
-    window.speechSynthesis.speak(utterance);
   }
 
   function startRoute(route: TourRoute) {
@@ -694,13 +659,13 @@ export default function Home() {
               className="flex rounded-lg bg-[var(--field)] p-1"
               aria-label="语言"
             >
-              {(["zh", "ko", "dual"] as Language[]).map((item) => (
+              {(["zh", "ko"] as Language[]).map((item) => (
                 <button
                   key={item}
                   onClick={() => setLanguage(item)}
                   className={`rounded-md px-2.5 py-1.5 text-[10px] font-semibold transition ${language === item ? "bg-[var(--ink)] text-[var(--surface)]" : "text-[var(--muted)]"}`}
                 >
-                  {item === "zh" ? "中" : item === "ko" ? "한" : "双"}
+                  {item === "zh" ? "中" : "한"}
                 </button>
               ))}
             </div>
@@ -1381,38 +1346,6 @@ export default function Home() {
                       {guide.zh.length} / {guide.ko.length}
                     </span>
                   </div>
-                  <div className="mt-4 grid grid-cols-2 gap-2">
-                    {language === "dual" ? (
-                      <>
-                        <button
-                          onClick={() => speak(selectedPlace, "zh")}
-                          className="flex items-center justify-center gap-2 rounded-lg bg-[var(--accent)] px-3 py-3 text-sm font-semibold text-[var(--accent-ink)]"
-                        >
-                          <Headphones size={17} />
-                          中文语音
-                        </button>
-                        <button
-                          onClick={() => speak(selectedPlace, "ko")}
-                          className="flex items-center justify-center gap-2 rounded-lg border border-[var(--line)] px-3 py-3 text-sm font-semibold"
-                        >
-                          <Headphones size={17} />
-                          한국어 음성
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        onClick={() =>
-                          speak(selectedPlace, language === "ko" ? "ko" : "zh")
-                        }
-                        className="col-span-2 flex items-center justify-center gap-2 rounded-lg bg-[var(--accent)] px-3 py-3 text-sm font-semibold text-[var(--accent-ink)]"
-                      >
-                        <Headphones size={18} weight="fill" />
-                        {speakingId === selectedPlace.id
-                          ? tx("停止讲解", "음성 중지")
-                          : tx("播放完整讲解", "전체 해설 듣기")}
-                      </button>
-                    )}
-                  </div>
                   <div className="mt-3 grid grid-cols-4 gap-2">
                     <button
                       onClick={() => toggleList("saved", selectedPlace.id)}
@@ -1470,60 +1403,19 @@ export default function Home() {
                         {tx("资料原文讲解", "자료 원문 해설")}
                       </h3>
                       <span className="text-xs text-[var(--muted)]">
-                        {language === "dual"
-                          ? "中 / 한"
-                          : language === "ko"
-                            ? "한국어"
-                            : "中文"}
+                        {language === "ko" ? "한국어" : "中文"}
                       </span>
                     </div>
-                    {language === "dual" ? (
-                      <div className="mt-4 grid gap-4">
-                        <div className="rounded-xl bg-[var(--field)] p-4">
-                          <h4 className="font-semibold text-[var(--accent)]">
-                            中文
-                          </h4>
-                          {(narrationExpanded
-                            ? guide.zh
-                            : guide.zh.slice(0, 3)
-                          ).map((text, index) => (
-                            <p
-                              key={index}
-                              className="mt-3 text-sm leading-7 text-[var(--muted)]"
-                            >
-                              {text}
-                            </p>
-                          ))}
-                        </div>
-                        <div className="rounded-xl bg-[var(--field)] p-4">
-                          <h4 className="font-semibold text-[var(--accent)]">
-                            한국어
-                          </h4>
-                          {(narrationExpanded
-                            ? guide.ko
-                            : guide.ko.slice(0, 3)
-                          ).map((text, index) => (
-                            <p
-                              key={index}
-                              className="mt-3 text-sm leading-7 text-[var(--muted)]"
-                            >
-                              {text}
-                            </p>
-                          ))}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="mt-3">
-                        {shown.map((text, index) => (
-                          <p
-                            key={index}
-                            className="mt-3 text-sm leading-7 text-[var(--muted)]"
-                          >
-                            {text}
-                          </p>
-                        ))}
-                      </div>
-                    )}
+                    <div className="mt-3">
+                      {shown.map((text, index) => (
+                        <p
+                          key={index}
+                          className="mt-3 text-sm leading-7 text-[var(--muted)]"
+                        >
+                          {text}
+                        </p>
+                      ))}
+                    </div>
                     <button
                       onClick={() => setNarrationExpanded((value) => !value)}
                       className="mt-4 w-full rounded-lg bg-[var(--field)] py-3 text-sm font-semibold"
