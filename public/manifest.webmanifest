@@ -19,6 +19,7 @@
   "shortcuts": [
     { "name": "找景点", "url": "/?tab=discover" },
     { "name": "看路线", "url": "/?tab=routes" },
+    { "name": "规划行程", "url": "/?tab=planner" },
     { "name": "我的收藏", "url": "/?tab=saved" }
   ]
 }

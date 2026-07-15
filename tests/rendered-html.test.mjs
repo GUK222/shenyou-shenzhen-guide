@@ -7,11 +7,10 @@ async function render() {
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
   const { default: worker } = await import(workerUrl.href);
 
-  return worker.fetch(
-    new Request("http://localhost/", { headers: { accept: "text/html" } }),
-    { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } },
-    { waitUntil() {}, passThroughOnException() {} },
-  );
+  const request = new Request("http://localhost/", { headers: { accept: "text/html" } });
+  return typeof worker.fetch === "function"
+    ? worker.fetch(request, { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } }, { waitUntil() {}, passThroughOnException() {} })
+    : worker(request);
 }
 
 test("server-renders the Shenzhen tour guide mobile app", async () => {
@@ -20,11 +19,11 @@ test("server-renders the Shenzhen tour guide mobile app", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /SHENYOU · 深圳解说/);
+  assert.match(html, /SHENYOU \/ 深圳解说/);
   assert.match(html, /今天，从哪一段深圳开始/);
   assert.match(html, /从海风里，读懂深圳/);
   assert.match(html, /今天怎么逛/);
-  assert.match(html, /18 个资料景点/);
+  assert.match(html, /18 个中韩双语景点/);
   assert.match(html, /4 条建议路线/);
   assert.match(html, /福田城市中轴/);
   assert.match(html, /深圳湾滨海线/);
@@ -40,6 +39,7 @@ test("server-renders the Shenzhen tour guide mobile app", async () => {
 
 test("contains the complete Shenzhen dataset and mobile app shell", async () => {
   const data = await readFile(new URL("../app/data.ts", import.meta.url), "utf8");
+  const bilingual = JSON.parse(await readFile(new URL("../app/bilingual-data.json", import.meta.url), "utf8"));
   const manifest = JSON.parse(await readFile(new URL("../public/manifest.webmanifest", import.meta.url), "utf8"));
   const serviceWorker = await readFile(new URL("../public/sw.js", import.meta.url), "utf8");
 
@@ -51,6 +51,10 @@ test("contains the complete Shenzhen dataset and mobile app shell", async () => 
 
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.short_name, "深游");
-  assert.match(serviceWorker, /CACHE_NAME = "shenyou-v2"/);
+  assert.match(serviceWorker, /CACHE_NAME = "shenyou-v4"/);
   assert.doesNotMatch(data, /上海|徐汇/);
+  assert.equal(bilingual.places.length, 18);
+  assert.equal(bilingual.places.reduce((sum, place) => sum + place.zh.length, 0), 204);
+  assert.equal(bilingual.places.reduce((sum, place) => sum + place.ko.length, 0), 214);
+  assert.ok(bilingual.places.every((place) => /[가-힣]/.test(place.ko.join(" "))));
 });

@@ -1,4 +1,4 @@
-const CACHE_NAME = "shenyou-v2";
+const CACHE_NAME = "shenyou-v4";
 const APP_SHELL = ["/", "/manifest.webmanifest", "/favicon.svg", "/images/riverside.png", "/og.png"];
 
 self.addEventListener("install", (event) => {
