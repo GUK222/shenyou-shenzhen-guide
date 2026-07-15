@@ -16,6 +16,8 @@ export async function generateMetadata(): Promise<Metadata> {
     title: "深游 SHENYOU｜深圳旅游解说 App",
     description: "基于深圳旅游解说资料整理的手机端景点导览、收藏与语音讲解应用。",
     applicationName: "深游",
+    manifest: "/manifest.webmanifest",
+    appleWebApp: { capable: true, title: "深游", statusBarStyle: "black-translucent" },
     icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
     openGraph: {
       title: "深游 SHENYOU",

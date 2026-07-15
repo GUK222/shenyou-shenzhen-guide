@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 :root {
+  color-scheme: light dark;
   --canvas: #edf1ef;
   --surface: #fbfcfa;
   --field: #f1f4f2;
@@ -18,13 +19,25 @@
 }
 
 * { box-sizing: border-box; }
-html { background: var(--canvas); }
-body { margin: 0; background: var(--canvas); color: var(--ink); font-family: var(--font-geist-sans), "PingFang SC", "Microsoft YaHei", sans-serif; }
+html { background: var(--canvas); overscroll-behavior-y: none; }
+body { margin: 0; background: var(--canvas); color: var(--ink); font-family: var(--font-geist-sans), "PingFang SC", "Microsoft YaHei", sans-serif; -webkit-tap-highlight-color: transparent; }
 button, input { font: inherit; }
-button { cursor: pointer; }
-button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+button { cursor: pointer; touch-action: manipulation; }
+a { color: inherit; text-decoration: none; touch-action: manipulation; }
+button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+::selection { background: color-mix(in srgb, var(--accent) 24%, transparent); }
 .no-scrollbar { scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
+
+.route-bay { background: linear-gradient(145deg, #0d5c5a, #123d3b); }
+.route-city { background: linear-gradient(145deg, #315e58, #173b37); }
+.route-heritage { background: linear-gradient(145deg, #4f6b60, #2c4840); }
+.route-coast { background: linear-gradient(145deg, #27626b, #193f49); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .sheet { animation: sheet-enter 260ms cubic-bezier(.16, 1, .3, 1); }
+  @keyframes sheet-enter { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+}
 
 @media (prefers-color-scheme: dark) {
   :root {
@@ -42,4 +55,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  nav { backdrop-filter: none !important; background: var(--surface) !important; }
 }
