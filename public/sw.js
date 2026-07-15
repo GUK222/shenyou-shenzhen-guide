@@ -1,5 +1,7 @@
 const CACHE_NAME = "shenyou-v4";
-const APP_SHELL = ["/", "/manifest.webmanifest", "/favicon.svg", "/images/riverside.png", "/og.png"];
+const BASE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, "");
+const ROOT_PATH = `${BASE_PATH}/`;
+const APP_SHELL = [ROOT_PATH, `${BASE_PATH}/manifest.webmanifest`, `${BASE_PATH}/favicon.svg`, `${BASE_PATH}/images/riverside.png`, `${BASE_PATH}/og.png`];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
@@ -20,9 +22,9 @@ self.addEventListener("fetch", (event) => {
   if (request.mode === "navigate") {
     event.respondWith(fetch(request).then((response) => {
       const copy = response.clone();
-      caches.open(CACHE_NAME).then((cache) => cache.put("/", copy));
+      caches.open(CACHE_NAME).then((cache) => cache.put(ROOT_PATH, copy));
       return response;
-    }).catch(() => caches.match("/")));
+    }).catch(() => caches.match(ROOT_PATH)));
     return;
   }
 

@@ -1,7 +1,7 @@
 "use client";
+/* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Image from "next/image";
 import {
   ArrowClockwise,
   ArrowDown,
@@ -68,6 +68,9 @@ type InstallPromptEvent = Event & {
 
 const STORAGE_KEY = "shenyou-app-v3";
 const OLD_STORAGE_KEY = "shenyou-app-v2";
+const BASE_PATH = typeof window !== "undefined" && window.location.pathname.startsWith("/shenyou-shenzhen-guide")
+  ? "/shenyou-shenzhen-guide"
+  : "";
 const defaultState: AppState = {
   language: "zh",
   saved: [],
@@ -398,7 +401,7 @@ export default function Home() {
         .catch(() => undefined);
       return;
     }
-    navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+    navigator.serviceWorker.register(`${BASE_PATH}/sw.js`).catch(() => undefined);
     const capturePrompt = (event: Event) => {
       event.preventDefault();
       setInstallPrompt(event as InstallPromptEvent);
@@ -791,13 +794,10 @@ export default function Home() {
                 "18개 중한 명소 / 4개 추천 코스",
               )}
               <section className="relative mt-6 min-h-[286px] overflow-hidden rounded-xl bg-[#173a37] text-[#f4f8f6]">
-                <Image
-                  src="/images/riverside.png"
+                <img
+                  src={`${BASE_PATH}/images/riverside.png`}
                   alt={tx("深圳湾滨海公共空间", "선전만 해안 공공 공간")}
-                  fill
-                  priority
-                  sizes="(max-width: 520px) 100vw, 520px"
-                  className="object-cover opacity-90"
+                  className="absolute inset-0 size-full object-cover opacity-90"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0a2421]/95 via-[#0a2421]/16 to-transparent" />
                 <div className="relative flex min-h-[286px] flex-col justify-end p-5">

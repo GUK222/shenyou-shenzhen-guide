@@ -9,9 +9,10 @@
     "dev": "vinext dev",
     "dev:local": "vinext dev --hostname 127.0.0.1 --port 3001",
     "build": "vinext build",
+    "build:pages": "vite build --config vite.github.config.ts",
     "start": "vinext start",
     "test": "npm run build && node --test tests/rendered-html.test.mjs",
-    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern dist-pages --ignore-pattern .next",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
