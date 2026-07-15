@@ -16,7 +16,6 @@ import {
   Compass,
   Copy,
   DownloadSimple,
-  Footprints,
   House,
   IdentificationCard,
   Info,
@@ -55,7 +54,8 @@ import {
   routeKorean,
   type Language,
 } from "./bilingual";
-import { CityMap } from "./CityMap";
+import { CityMap, mainlandMapUrl } from "./CityMap";
+import { guideSkills, learningGoals, quizQuestions } from "./learning-data";
 import {
   districtStories,
   estimateTravelMinutes,
@@ -66,18 +66,21 @@ import {
 } from "./travel-data";
 
 type Tab = "home" | "discover" | "map" | "planner" | "saved";
-type SavedView = "favorites" | "visited" | "notes";
+type SavedView = "learned" | "favorites" | "notes";
 type PlaceView = "grid" | "list";
+type PracticeMode = "quiz" | "cards" | "rehearsal";
 
 type AppState = {
   language: Language;
   saved: number[];
+  learned: number[];
   visited: number[];
   recent: number[];
   plan: number[];
   notes: Record<string, string>;
   activeRouteId: string | null;
   routeProgress: Record<string, number[]>;
+  quizBest: number;
 };
 
 type InstallPromptEvent = Event & {
@@ -85,20 +88,22 @@ type InstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 };
 
-const STORAGE_KEY = "shenyou-app-v3";
-const OLD_STORAGE_KEY = "shenyou-app-v2";
+const STORAGE_KEY = "shenyou-app-v4";
+const OLD_STORAGE_KEY = "shenyou-app-v3";
 const BASE_PATH = typeof window !== "undefined" && window.location.pathname.startsWith("/shenyou-shenzhen-guide")
   ? "/shenyou-shenzhen-guide"
   : "";
 const defaultState: AppState = {
   language: "zh",
   saved: [],
+  learned: [],
   visited: [],
   recent: [],
   plan: [],
   notes: {},
   activeRouteId: null,
   routeProgress: {},
+  quizBest: 0,
 };
 const featuredPlaceIds = [1, 2, 5, 14];
 
@@ -135,6 +140,7 @@ function normaliseState(input: Partial<AppState>): AppState {
   return {
     language: input.language === "ko" ? "ko" : "zh",
     saved: validIds(input.saved),
+    learned: validIds(input.learned),
     visited: validIds(input.visited),
     recent: validIds(input.recent).slice(0, 8),
     plan: validIds(input.plan),
@@ -151,6 +157,10 @@ function normaliseState(input: Partial<AppState>): AppState {
       ? (input.activeRouteId ?? null)
       : null,
     routeProgress,
+    quizBest:
+      typeof input.quizBest === "number" && Number.isFinite(input.quizBest)
+        ? Math.max(0, Math.min(quizQuestions.length, Math.floor(input.quizBest)))
+        : 0,
   };
 }
 
@@ -158,14 +168,14 @@ function PlaceCard({
   place,
   language,
   saved,
-  visited,
+  learned,
   onOpen,
   onSave,
 }: {
   place: Place;
   language: Language;
   saved: boolean;
-  visited: boolean;
+  learned: boolean;
   onOpen: () => void;
   onSave: () => void;
 }) {
@@ -182,18 +192,24 @@ function PlaceCard({
   return (
     <article className="group relative overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)] shadow-[0_12px_34px_rgba(30,68,61,.06)] transition active:scale-[.99]">
       <div className="relative aspect-[4/3] overflow-hidden bg-[var(--field)]">
-        <img
-          src={`${BASE_PATH}${detail?.image ?? "/images/riverside.png"}`}
-          alt={title}
-          width={640}
-          height={480}
-          loading="lazy"
-          decoding="async"
-          className="size-full object-cover transition duration-500 group-hover:scale-[1.025]"
-        />
+        <button
+          onClick={onOpen}
+          className="block size-full overflow-hidden text-left"
+          aria-label={pick(language, `查看${title}`, `${title} 보기`)}
+        >
+          <img
+            src={`${BASE_PATH}${detail?.image ?? "/images/riverside.png"}`}
+            alt={title}
+            width={640}
+            height={480}
+            loading="lazy"
+            decoding="async"
+            className="size-full object-cover transition duration-500 group-hover:scale-[1.025]"
+          />
+        </button>
         <button
           onClick={onSave}
-          className="absolute right-3 top-3 grid size-11 place-items-center rounded-xl border border-white/30 bg-[#0b1715]/70 text-white shadow-lg backdrop-blur-md transition active:scale-90"
+          className="absolute right-3 top-3 z-10 grid size-11 place-items-center rounded-xl border border-white/30 bg-[#0b1715]/70 text-white shadow-lg backdrop-blur-md transition active:scale-90"
           aria-label={
             saved
               ? pick(language, `取消收藏${title}`, `${title} 저장 취소`)
@@ -228,9 +244,9 @@ function PlaceCard({
           <span className="inline-flex min-w-0 items-center gap-1">
             <Train size={12} /> {pick(language, "地铁可达", "지하철 이용")}
           </span>
-          {visited && (
+          {learned && (
             <span className="text-[var(--accent)]">
-              {pick(language, "已到访", "방문 완료")}
+              {pick(language, "已掌握", "학습 완료")}
             </span>
           )}
         </div>
@@ -364,7 +380,7 @@ function RouteCard({
             : `${route.placeIds.length} ${pick(language, "个景点", "개 명소")}`}
         </span>
         <span className="inline-flex items-center gap-1.5">
-          {pick(language, "查看路线", "코스 보기")} <ArrowRight size={14} />
+          {pick(language, "查看路径", "학습 코스 보기")} <ArrowRight size={14} />
         </span>
       </div>
     </button>
@@ -379,8 +395,16 @@ export default function Home() {
   const [storageReady, setStorageReady] = useState(false);
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const [selectedRoute, setSelectedRoute] = useState<TourRoute | null>(null);
-  const [savedView, setSavedView] = useState<SavedView>("favorites");
+  const [savedView, setSavedView] = useState<SavedView>("learned");
   const [placeView, setPlaceView] = useState<PlaceView>("grid");
+  const [practiceMode, setPracticeMode] = useState<PracticeMode>("quiz");
+  const [questionIndex, setQuestionIndex] = useState(0);
+  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
+  const [quizScore, setQuizScore] = useState(0);
+  const [quizFinished, setQuizFinished] = useState(false);
+  const [practiceExitOpen, setPracticeExitOpen] = useState(false);
+  const [cardIndex, setCardIndex] = useState(0);
+  const [cardFlipped, setCardFlipped] = useState(false);
   const [collectionFilter, setCollectionFilter] = useState<string | null>(null);
   const [expandedToolkit, setExpandedToolkit] = useState<string | null>("payment");
   const [infoOpen, setInfoOpen] = useState(false);
@@ -399,6 +423,7 @@ export default function Home() {
     setSelectedRoute(null);
     setInfoOpen(false);
     setNarrationExpanded(false);
+    setPracticeExitOpen(false);
     const url = new URL(window.location.href);
     url.search = activeTab === "home" ? "" : `?tab=${activeTab}`;
     window.history.replaceState({}, "", url);
@@ -479,7 +504,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const overlayOpen = Boolean(selectedPlace || selectedRoute || infoOpen);
+    const overlayOpen = Boolean(selectedPlace || selectedRoute || infoOpen || practiceExitOpen);
     if (!overlayOpen) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -491,7 +516,7 @@ export default function Home() {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", closeOnEscape);
     };
-  }, [selectedPlace, selectedRoute, infoOpen, closeOverlays]);
+  }, [selectedPlace, selectedRoute, infoOpen, practiceExitOpen, closeOverlays]);
 
   useEffect(
     () => () => {
@@ -532,6 +557,12 @@ export default function Home() {
     .map(getPlace)
     .filter((place): place is Place => Boolean(place));
   const plannedDistricts = new Set(plannedPlaces.map((place) => place.district));
+  const nextCourse =
+    recentPlaces.find((place) => !appState.learned.includes(place.id)) ??
+    places.find((place) => !appState.learned.includes(place.id)) ??
+    places[0];
+  const currentQuestion = quizQuestions[questionIndex];
+  const currentCard = places[cardIndex % places.length];
 
   function showToast(message: string) {
     setToast(message);
@@ -615,7 +646,7 @@ export default function Home() {
     window.history.replaceState({}, "", url);
   }
 
-  function toggleList(key: "saved" | "visited" | "plan", id: number) {
+  function toggleList(key: "saved" | "learned" | "visited" | "plan", id: number) {
     const exists = appState[key].includes(id);
     setAppState((current) => ({
       ...current,
@@ -628,6 +659,50 @@ export default function Home() {
         ? tx("已移除", "삭제했습니다")
         : tx("已保存到本机", "기기에 저장했습니다"),
     );
+  }
+
+  function answerQuestion(index: number) {
+    if (selectedAnswer !== null || quizFinished) return;
+    setSelectedAnswer(index);
+    if (index === currentQuestion.answer) setQuizScore((score) => score + 1);
+  }
+
+  function nextQuestion() {
+    if (selectedAnswer === null) return;
+    const nextScore = quizScore;
+    if (questionIndex === quizQuestions.length - 1) {
+      setQuizFinished(true);
+      setAppState((current) => ({
+        ...current,
+        quizBest: Math.max(current.quizBest, nextScore),
+      }));
+      return;
+    }
+    setQuestionIndex((index) => index + 1);
+    setSelectedAnswer(null);
+  }
+
+  function resetQuiz() {
+    setQuestionIndex(0);
+    setSelectedAnswer(null);
+    setQuizScore(0);
+    setQuizFinished(false);
+  }
+
+  function openPractice(placeId?: number, mode: PracticeMode = "quiz") {
+    closeOverlays();
+    setPracticeMode(mode);
+    if (placeId) {
+      const match = quizQuestions.findIndex((question) => question.placeId === placeId);
+      if (match >= 0) setQuestionIndex(match);
+    }
+    setSelectedAnswer(null);
+    setQuizFinished(false);
+    setActiveTab("planner");
+    const url = new URL(window.location.href);
+    url.search = "?tab=planner";
+    window.history.replaceState({}, "", url);
+    window.scrollTo({ top: 0 });
   }
 
   function movePlan(id: number, direction: -1 | 1) {
@@ -718,7 +793,7 @@ export default function Home() {
             : (current.routeProgress[route.id] ?? []),
       },
     }));
-    showToast(tx("路线已开始", "코스를 시작했습니다"));
+    showToast(tx("学习路径已开始", "학습 코스를 시작했습니다"));
   }
 
   function toggleRoutePlace(route: TourRoute, placeId: number) {
@@ -729,9 +804,9 @@ export default function Home() {
         : [...completed, placeId];
       return {
         ...current,
-        visited: next.includes(placeId)
-          ? [...new Set([...current.visited, placeId])]
-          : current.visited,
+        learned: next.includes(placeId)
+          ? [...new Set([...current.learned, placeId])]
+          : current.learned,
         routeProgress: { ...current.routeProgress, [route.id]: next },
       };
     });
@@ -752,7 +827,7 @@ export default function Home() {
 
   function exportData() {
     const blob = new Blob(
-      [JSON.stringify({ version: 3, state: appState }, null, 2)],
+      [JSON.stringify({ version: 4, state: appState }, null, 2)],
       { type: "application/json" },
     );
     const anchor = document.createElement("a");
@@ -800,8 +875,8 @@ export default function Home() {
     if (
       !window.confirm(
         tx(
-          "确定清除收藏、笔记和行程吗？",
-          "저장, 메모와 일정을 모두 삭제할까요?",
+          "确定清除学习进度、收藏和备课笔记吗？",
+          "학습 진도, 저장과 수업 준비 메모를 모두 삭제할까요?",
         ),
       )
     )
@@ -821,7 +896,7 @@ export default function Home() {
       <header className="pt-1">
         <div className="flex items-center justify-between gap-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
-            SHENYOU / 深圳解说
+            SHENYOU / 导游学院
           </p>
           <div className="flex items-center gap-2">
             <div
@@ -915,7 +990,7 @@ export default function Home() {
       place={place}
       language={language}
       saved={appState.saved.includes(place.id)}
-      visited={appState.visited.includes(place.id)}
+      learned={appState.learned.includes(place.id)}
       onOpen={() => openPlace(place)}
       onSave={() => toggleList("saved", place.id)}
     />
@@ -928,15 +1003,15 @@ export default function Home() {
           {activeTab === "home" && (
             <>
               {renderHeader(
-                "今天，想看怎样的深圳？",
-                "오늘은 어떤 선전을 만나볼까요?",
-                "中韩双语城市导览、地图与行程规划",
-                "중한 도시 가이드, 지도와 일정 계획",
+                "今天，练哪一段讲解？",
+                "오늘은 어떤 해설을 연습할까요?",
+                "深圳中韩双语导游学习与备课",
+                "선전 중한 이중언어 가이드 학습과 수업 준비",
               )}
-              <section className="relative mt-6 min-h-[320px] overflow-hidden rounded-2xl bg-[#173a37] text-[#f4f8f6]">
+              <section className="relative mt-6 min-h-[310px] overflow-hidden rounded-2xl bg-[#173a37] text-[#f4f8f6]">
                 <img
-                  src={`${BASE_PATH}/images/places/shenzhen-bay.jpg`}
-                  alt={tx("深圳湾日落与城市天际线", "선전만 노을과 도시 스카이라인")}
+                  src={`${BASE_PATH}${travelDetailFor(nextCourse.id)?.image ?? "/images/places/shenzhen-bay.jpg"}`}
+                  alt={pick(language, guideFor(nextCourse.id)?.titleZh ?? nextCourse.title, guideFor(nextCourse.id)?.titleKo ?? nextCourse.title)}
                   width={1200}
                   height={800}
                   fetchPriority="high"
@@ -944,64 +1019,66 @@ export default function Home() {
                   className="absolute inset-0 size-full object-cover opacity-90"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#071b19]/95 via-[#071b19]/18 to-[#071b19]/10" />
-                <div className="relative flex min-h-[320px] flex-col justify-end p-6">
+                <div className="relative flex min-h-[310px] flex-col justify-end p-6">
                   <p className="text-xs font-medium text-[rgba(244,248,246,.78)]">
-                    {tx("深圳湾滨海线 / 4 个停靠点", "선전만 해안 코스 / 4개 장소")}
+                    {tx("今日学习 / 约 5 分钟", "오늘의 학습 / 약 5분")}
                   </p>
                   <h2 className="mt-2 max-w-[13ch] text-[30px] font-semibold leading-[1.08] tracking-[-0.045em]">
-                    {tx("从海风到夜色，认识真实深圳。", "바닷바람부터 야경까지, 진짜 선전을 만나다.")}
+                    {pick(language, guideFor(nextCourse.id)?.titleZh ?? nextCourse.title, guideFor(nextCourse.id)?.titleKo ?? nextCourse.title)}
                   </h2>
+                  <p className="mt-2 text-sm text-[rgba(244,248,246,.78)]">
+                    {tx("读讲解词，记关键事实，完成一次自测。", "해설문을 읽고 핵심 사실을 익힌 뒤 퀴즈를 풀어 보세요.")}
+                  </p>
                   <button
-                    onClick={() => openRoute(tourRoutes[1])}
+                    onClick={() => openPlace(nextCourse)}
                     className="mt-5 inline-flex min-h-12 w-fit items-center gap-2 rounded-xl bg-[#f4f8f6] px-4 py-3 text-sm font-semibold text-[#12312e] active:scale-[.98]"
                   >
-                    {tx("打开路线", "코스 열기")} <ArrowRight size={15} />
+                    {tx("继续学习", "계속 학습")} <ArrowRight size={15} />
                   </button>
                 </div>
               </section>
-              <section className="mt-4 grid grid-cols-4 gap-2" aria-label={tx("快捷入口", "빠른 메뉴")}>
-                <button
-                  onClick={() => changeTab("map")}
-                  className="min-h-24 rounded-2xl bg-[var(--field)] p-3 text-left active:scale-[.98]"
-                >
-                  <MapTrifold size={20} className="text-[var(--accent)]" />
-                  <b className="mt-3 block text-sm">MAP</b>
-                  <span className="text-[10px] text-[var(--muted)]">
-                    {tx("看地图", "지도")}
-                  </span>
-                </button>
-                <button
-                  onClick={() => changeTab("planner")}
-                  className="min-h-24 rounded-2xl bg-[var(--field)] p-3 text-left active:scale-[.98]"
-                >
-                  <CalendarDots size={20} className="text-[var(--accent)]" />
-                  <b className="mt-3 block text-sm">{appState.plan.length}</b>
-                  <span className="text-[10px] text-[var(--muted)]">
-                    {tx("行程景点", "일정 장소")}
-                  </span>
-                </button>
-                <button
-                  onClick={() => openCollection("first-day")}
-                  className="min-h-24 rounded-2xl bg-[var(--field)] p-3 text-left active:scale-[.98]"
-                >
-                  <Buildings size={20} className="text-[var(--accent)]" />
-                  <b className="mt-3 block text-sm">4</b>
-                  <span className="text-[10px] text-[var(--muted)]">
-                    {tx("首次必看", "첫 여행")}
-                  </span>
-                </button>
+              <section className="mt-4 grid grid-cols-4 gap-2" aria-label={tx("学习概览", "학습 개요")}>
                 <button
                   onClick={() => {
-                    const place =
-                      places[Math.floor(Math.random() * places.length)];
-                    openPlace(place);
+                    setSavedView("learned");
+                    changeTab("saved");
                   }}
                   className="min-h-24 rounded-2xl bg-[var(--field)] p-3 text-left active:scale-[.98]"
                 >
-                  <Shuffle size={20} className="text-[var(--accent)]" />
-                  <b className="mt-3 block text-sm">GO</b>
+                  <CheckCircle size={20} className="text-[var(--accent)]" />
+                  <b className="mt-3 block text-sm">{appState.learned.length}/18</b>
                   <span className="text-[10px] text-[var(--muted)]">
-                    {tx("随机推荐", "무작위 추천")}
+                    {tx("已学课程", "완료 강의")}
+                  </span>
+                </button>
+                <button
+                  onClick={() => openPractice(undefined, "quiz")}
+                  className="min-h-24 rounded-2xl bg-[var(--field)] p-3 text-left active:scale-[.98]"
+                >
+                  <IdentificationCard size={20} className="text-[var(--accent)]" />
+                  <b className="mt-3 block text-sm">{appState.quizBest}/{quizQuestions.length}</b>
+                  <span className="text-[10px] text-[var(--muted)]">
+                    {tx("自测最佳", "최고 점수")}
+                  </span>
+                </button>
+                <button
+                  onClick={() => changeTab("discover")}
+                  className="min-h-24 rounded-2xl bg-[var(--field)] p-3 text-left active:scale-[.98]"
+                >
+                  <Buildings size={20} className="text-[var(--accent)]" />
+                  <b className="mt-3 block text-sm">18</b>
+                  <span className="text-[10px] text-[var(--muted)]">
+                    {tx("讲解课程", "해설 강의")}
+                  </span>
+                </button>
+                <button
+                  onClick={() => openPractice(undefined, "cards")}
+                  className="min-h-24 rounded-2xl bg-[var(--field)] p-3 text-left active:scale-[.98]"
+                >
+                  <Shuffle size={20} className="text-[var(--accent)]" />
+                  <b className="mt-3 block text-sm">中 / 한</b>
+                  <span className="text-[10px] text-[var(--muted)]">
+                    {tx("双语卡片", "이중언어 카드")}
                   </span>
                 </button>
               </section>
@@ -1010,7 +1087,7 @@ export default function Home() {
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="text-xs font-semibold text-[var(--accent)]">
-                        {tx("当前行程", "현재 코스")}
+                        {tx("当前学习路径", "현재 학습 코스")}
                       </p>
                       <h2 className="mt-1 text-lg font-semibold">
                         {tx(
@@ -1026,7 +1103,7 @@ export default function Home() {
                       onClick={() => openRoute(activeRoute)}
                       className="rounded-lg bg-[var(--accent)] px-3 py-2 text-xs font-semibold text-[var(--accent-ink)]"
                     >
-                      {tx("查看进度", "진행 보기")}
+                      {tx("查看路径", "코스 보기")}
                     </button>
                   </div>
                   <div className="mt-4 flex gap-2">
@@ -1049,10 +1126,31 @@ export default function Home() {
               )}
               <section className="mt-8">
                 <h2 className="text-xl font-semibold tracking-[-0.03em]">
-                  {tx("按心情认识深圳", "취향으로 만나는 선전")}
+                  {tx("导游核心能力", "가이드 핵심 역량")}
                 </h2>
                 <p className="mt-1 text-sm text-[var(--muted)]">
-                  {tx("不只看景点，也看城市的不同侧面。", "명소뿐 아니라 도시의 여러 얼굴을 만나보세요.")}
+                  {tx("课程围绕讲得准、说得清、带得顺来组织。", "정확한 지식, 명확한 표현과 매끄러운 인솔을 중심으로 구성했습니다.")}
+                </p>
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  {guideSkills.map((skill, index) => (
+                    <button
+                      key={skill.id}
+                      onClick={() => index === 2 ? changeTab("map") : index === 3 ? openPractice(undefined, "rehearsal") : changeTab("discover")}
+                      className="min-h-32 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 text-left active:scale-[.99]"
+                    >
+                      <span className="text-xs font-semibold text-[var(--accent)]">0{index + 1}</span>
+                      <b className="mt-6 block text-base">{tx(skill.zh, skill.ko)}</b>
+                      <span className="mt-1 block text-xs leading-5 text-[var(--muted)]">{tx(skill.noteZh, skill.noteKo)}</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+              <section className="mt-8">
+                <h2 className="text-xl font-semibold tracking-[-0.03em]">
+                  {tx("主题学习路径", "주제별 학습 코스")}
+                </h2>
+                <p className="mt-1 text-sm text-[var(--muted)]">
+                  {tx("把相关景点串起来，形成完整的城市讲解逻辑。", "관련 명소를 연결해 완성도 있는 도시 해설 흐름을 만드세요.")}
                 </p>
                 <div className="no-scrollbar -mx-5 mt-4 flex snap-x gap-3 overflow-x-auto px-5 pb-2">
                   {themedCollections.map((collection) => (
@@ -1083,12 +1181,12 @@ export default function Home() {
                 <div className="flex items-end justify-between">
                   <div>
                     <h2 className="text-xl font-semibold tracking-[-0.03em]">
-                      {tx("今天怎么逛", "오늘의 추천 코스")}
+                      {tx("线路讲解训练", "코스 해설 훈련")}
                     </h2>
                     <p className="mt-1 text-sm text-[var(--muted)]">
                       {tx(
-                        "按区域组织，减少无效往返。",
-                        "지역별로 묶어 이동을 줄였습니다.",
+                        "学习集合、转场与整条线路的叙事顺序。",
+                        "집합, 이동과 전체 코스의 설명 순서를 익히세요.",
                       )}
                     </p>
                   </div>
@@ -1096,7 +1194,7 @@ export default function Home() {
                     onClick={() => changeTab("planner")}
                     className="text-xs font-semibold text-[var(--accent)]"
                   >
-                    {tx("生成行程", "일정 만들기")}
+                    {tx("开始练习", "연습 시작")}
                   </button>
                 </div>
                 <div className="no-scrollbar -mx-5 mt-4 flex snap-x gap-3 overflow-x-auto px-5 pb-2">
@@ -1117,7 +1215,7 @@ export default function Home() {
               </section>
               <section className="mt-8">
                 <h2 className="text-xl font-semibold tracking-[-0.03em]">
-                  {tx("从街区开始", "지역부터 살펴보기")}
+                  {tx("按片区备课", "지역별 수업 준비")}
                 </h2>
                 <div className="mt-4 grid grid-cols-2 gap-3">
                   {districtStories.map((district, index) => (
@@ -1143,10 +1241,10 @@ export default function Home() {
               </section>
               <section className="mt-8">
                 <h2 className="text-xl font-semibold tracking-[-0.03em]">
-                  {tx("韩国游客旅行准备", "한국 여행자를 위한 준비")}
+                  {tx("导游现场工具箱", "가이드 현장 도구")}
                 </h2>
                 <p className="mt-1 text-sm text-[var(--muted)]">
-                  {tx("支付、交通、通关和网络，出发前一次看懂。", "결제, 교통, 출입경과 통신을 출발 전에 확인하세요.")}
+                  {tx("支付、交通、通关和网络，带团前集中复习。", "결제, 교통, 출입경과 통신을 인솔 전에 복습하세요.")}
                 </p>
                 <div className="mt-4 overflow-hidden rounded-2xl border border-[var(--line)]">
                   {travelToolkits.map((toolkit) => {
@@ -1178,13 +1276,13 @@ export default function Home() {
                 <section className="mt-7">
                   <div className="flex items-center justify-between">
                     <h2 className="text-lg font-semibold">
-                      {tx("继续浏览", "계속 보기")}
+                      {tx("继续学习", "계속 학습")}
                     </h2>
                     <button
                       onClick={() => changeTab("saved")}
                       className="text-xs font-semibold text-[var(--accent)]"
                     >
-                      {tx("查看足迹", "기록 보기")}
+                      {tx("学习记录", "학습 기록")}
                     </button>
                   </div>
                   <div className="mt-2 grid gap-1">
@@ -1202,13 +1300,13 @@ export default function Home() {
               <section className="mt-8">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-semibold">
-                    {tx("资料精选", "추천 명소")}
+                    {tx("重点讲解课程", "핵심 해설 강의")}
                   </h2>
                   <button
                     onClick={() => changeTab("discover")}
                     className="text-xs font-semibold text-[var(--accent)]"
                   >
-                    {tx("查看 18 个景点", "18개 명소 보기")}
+                    {tx("查看 18 门课程", "18개 강의 보기")}
                   </button>
                 </div>
                 <div className="mt-4 grid grid-cols-1 gap-3 min-[390px]:grid-cols-2">
@@ -1224,10 +1322,10 @@ export default function Home() {
           {activeTab === "discover" && (
             <>
               {renderHeader(
-                "景点",
-                "명소",
-                "搜索完整中文与韩文讲解",
-                "중국어와 한국어 전체 해설 검색",
+                "讲解词课程库",
+                "해설문 강의실",
+                "按景点学习中文要点与韩文讲解",
+                "명소별 중국어 핵심과 한국어 해설 학습",
               )}
               {renderSearch()}
               {collectionFilter && (
@@ -1263,8 +1361,8 @@ export default function Home() {
                   <MapTrifold size={20} weight="duotone" />
                 </span>
                 <span className="flex-1">
-                  <b className="block text-sm">{tx("在地图上查看", "지도에서 보기")}</b>
-                  <small className="mt-1 block opacity-70">{tx("按区域判断距离和顺路地点", "지역과 이동 거리를 한눈에 확인")}</small>
+                  <b className="block text-sm">{tx("进入实地认路", "현장 동선 익히기")}</b>
+                  <small className="mt-1 block opacity-70">{tx("熟悉集合点、片区和转场位置", "집합 장소, 지역과 이동 위치를 익히세요")}</small>
                 </span>
                 <ArrowRight size={17} />
               </button>
@@ -1272,12 +1370,12 @@ export default function Home() {
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <h2 className="text-xl font-semibold tracking-[-0.03em]">
-                      {tx("资料里的深圳", "자료 속 선전")}
+                      {tx("全部课程", "전체 강의")}
                     </h2>
                     <p className="mt-1 text-xs text-[var(--muted)]" aria-live="polite">
                       {tx(
-                        `找到 ${filteredPlaces.length} 个景点`,
-                        `${filteredPlaces.length}개 명소를 찾았습니다`,
+                        `找到 ${filteredPlaces.length} 门课程`,
+                        `${filteredPlaces.length}개 강의를 찾았습니다`,
                       )}
                     </p>
                   </div>
@@ -1361,21 +1459,84 @@ export default function Home() {
           {activeTab === "map" && (
             <>
               {renderHeader(
-                "深圳地图",
-                "선전 지도",
-                "筛选景点，点按标记查看中韩详情",
-                "명소를 고르고 지도 표시를 눌러 상세 정보를 확인하세요",
+                "实地认路",
+                "현장 동선",
+                "用高德或百度熟悉集合点和转场位置",
+                "가오더 또는 바이두로 집합 장소와 이동 위치를 익히세요",
               )}
               {renderSearch()}
               <section className="mt-5">
                 <CityMap
                   places={filteredPlaces}
                   language={language}
-                  onOpen={openPlace}
                 />
                 <div className="mt-3 flex items-center justify-between text-xs text-[var(--muted)]">
                   <span>{tx(`${filteredPlaces.length} 个地点`, `${filteredPlaces.length}개 장소`)}</span>
-                  <span>{tx("地图数据 © OpenStreetMap", "지도 데이터 © OpenStreetMap")}</span>
+                  <span>{tx("支持高德与百度地图", "가오더 및 바이두 지도 지원")}</span>
+                </div>
+              </section>
+              <section className="mt-8">
+                <h2 className="text-lg font-semibold">{tx("集合点与导航", "집합 장소와 길찾기")}</h2>
+                <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
+                  {tx("点照片查看介绍，点地图按钮直接定位。", "사진은 상세 정보, 지도 버튼은 위치를 바로 엽니다.")}
+                </p>
+                <div className="mt-3 grid gap-2">
+                  {filteredPlaces.map((place) => {
+                    const guide = guideFor(place.id);
+                    const detail = travelDetailFor(place.id);
+                    const title = guide ? pick(language, guide.titleZh, guide.titleKo) : place.title;
+                    return (
+                      <article
+                        key={place.id}
+                        className="grid grid-cols-[1fr_auto] gap-2 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-2"
+                      >
+                        <button
+                          onClick={() => openPlace(place)}
+                          className="grid min-w-0 grid-cols-[68px_1fr] items-center gap-3 rounded-xl text-left active:scale-[.99]"
+                          aria-label={tx(`查看${title}介绍`, `${title} 상세 보기`)}
+                        >
+                          <span className="h-16 overflow-hidden rounded-xl bg-[var(--field)]">
+                            <img
+                              src={`${BASE_PATH}${detail?.image ?? "/images/riverside.png"}`}
+                              alt=""
+                              width={160}
+                              height={160}
+                              loading="lazy"
+                              className="size-full object-cover"
+                            />
+                          </span>
+                          <span className="min-w-0">
+                            <b className="block truncate text-sm">{title}</b>
+                            <small className="mt-1 block truncate text-[var(--muted)]">
+                              {guide ? pick(language, guide.districtZh, guide.districtKo) : place.district}
+                            </small>
+                          </span>
+                        </button>
+                        <div className="grid grid-cols-2 gap-1">
+                          <a
+                            href={mainlandMapUrl(place, "amap")}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="grid min-h-14 min-w-12 place-items-center rounded-xl bg-[var(--soft)] px-2 text-[10px] font-semibold text-[var(--accent)] active:scale-95"
+                            aria-label={tx(`用高德地图打开${title}`, `가오더 지도에서 ${title} 열기`)}
+                          >
+                            <NavigationArrow size={17} weight="fill" />
+                            {tx("高德", "가오더")}
+                          </a>
+                          <a
+                            href={mainlandMapUrl(place, "baidu")}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="grid min-h-14 min-w-12 place-items-center rounded-xl bg-[var(--field)] px-2 text-[10px] font-semibold text-[var(--muted)] active:scale-95"
+                            aria-label={tx(`用百度地图打开${title}`, `바이두 지도에서 ${title} 열기`)}
+                          >
+                            <MapPin size={17} weight="fill" />
+                            {tx("百度", "바이두")}
+                          </a>
+                        </div>
+                      </article>
+                    );
+                  })}
                 </div>
               </section>
               <section className="mt-8">
@@ -1406,6 +1567,183 @@ export default function Home() {
           )}
 
           {activeTab === "planner" && (
+            <>
+              {renderHeader(
+                "练习中心",
+                "연습 센터",
+                "用短时自测、双语卡片和复述训练巩固讲解",
+                "짧은 퀴즈, 이중언어 카드와 말하기 연습으로 해설을 익히세요",
+              )}
+              <div className="mt-4 flex justify-end">
+                <button
+                  onClick={() => setPracticeExitOpen(true)}
+                  className="flex min-h-10 items-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 text-xs font-semibold text-[var(--muted)] active:scale-95"
+                >
+                  <X size={15} /> {tx("退出练习", "연습 나가기")}
+                </button>
+              </div>
+              <div className="no-scrollbar mt-6 flex gap-2 overflow-x-auto" role="tablist" aria-label={tx("练习方式", "연습 방식")}>
+                {([
+                  { id: "quiz", zh: "知识自测", ko: "지식 퀴즈", Icon: IdentificationCard },
+                  { id: "cards", zh: "双语卡片", ko: "이중언어 카드", Icon: Copy },
+                  { id: "rehearsal", zh: "讲解复述", ko: "해설 말하기", Icon: NotePencil },
+                ] as const).map(({ id, zh, ko, Icon }) => (
+                  <button
+                    key={id}
+                    onClick={() => setPracticeMode(id)}
+                    role="tab"
+                    aria-selected={practiceMode === id}
+                    className={`flex min-h-12 shrink-0 items-center gap-2 rounded-xl px-4 text-sm font-semibold ${practiceMode === id ? "bg-[var(--ink)] text-[var(--surface)]" : "bg-[var(--field)] text-[var(--muted)]"}`}
+                  >
+                    <Icon size={17} /> {tx(zh, ko)}
+                  </button>
+                ))}
+              </div>
+
+              {practiceMode === "quiz" && (
+                <section className="mt-6">
+                  {!quizFinished ? (
+                    <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[0_12px_34px_rgba(30,68,61,.06)]">
+                      <div className="flex items-center justify-between text-xs font-semibold text-[var(--muted)]">
+                        <span>{tx("今日强化", "오늘의 강화 학습")}</span>
+                        <span>{questionIndex + 1}/{quizQuestions.length}</span>
+                      </div>
+                      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[var(--field)]">
+                        <div className="h-full rounded-full bg-[var(--accent)]" style={{ width: `${((questionIndex + 1) / quizQuestions.length) * 100}%` }} />
+                      </div>
+                      <h2 className="mt-6 text-xl font-semibold leading-8">
+                        {tx(currentQuestion.questionZh, currentQuestion.questionKo)}
+                      </h2>
+                      <div className="mt-5 grid gap-2">
+                        {(language === "ko" ? currentQuestion.optionsKo : currentQuestion.optionsZh).map((option, index) => {
+                          const answered = selectedAnswer !== null;
+                          const correct = index === currentQuestion.answer;
+                          const selected = selectedAnswer === index;
+                          return (
+                            <button
+                              key={option}
+                              onClick={() => answerQuestion(index)}
+                              disabled={answered}
+                              className={`min-h-14 rounded-xl border p-4 text-left text-sm font-medium ${answered && correct ? "border-[var(--accent)] bg-[var(--soft)] text-[var(--accent)]" : answered && selected ? "border-[#b65b52] bg-[#b65b52]/10" : "border-[var(--line)] bg-[var(--field)]"}`}
+                            >
+                              <span className="mr-3 text-xs opacity-60">{String.fromCharCode(65 + index)}</span>
+                              {option}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {selectedAnswer !== null && (
+                        <div className="mt-4 rounded-xl bg-[var(--soft)] p-4">
+                          <b className="text-sm text-[var(--accent)]">
+                            {selectedAnswer === currentQuestion.answer ? tx("回答正确", "정답입니다") : tx("再记一次", "다시 기억해 보세요")}
+                          </b>
+                          <p className="mt-2 text-xs leading-6 text-[var(--muted)]">
+                            {tx(currentQuestion.explainZh, currentQuestion.explainKo)}
+                          </p>
+                        </div>
+                      )}
+                      <button
+                        onClick={nextQuestion}
+                        disabled={selectedAnswer === null}
+                        className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--accent-ink)] disabled:opacity-40"
+                      >
+                        {questionIndex === quizQuestions.length - 1 ? tx("查看结果", "결과 보기") : tx("下一题", "다음 문제")}
+                        <ArrowRight size={16} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl bg-[var(--ink)] p-6 text-[var(--surface)]">
+                      <p className="text-xs font-semibold opacity-65">{tx("本轮完成", "이번 학습 완료")}</p>
+                      <h2 className="mt-3 text-4xl font-semibold">{quizScore}/{quizQuestions.length}</h2>
+                      <p className="mt-3 text-sm leading-6 opacity-75">
+                        {quizScore >= 5 ? tx("基础知识掌握稳定，可以进入讲解复述。", "기초 지식이 안정적입니다. 해설 말하기로 넘어가세요.") : tx("建议重做错题，并回到对应课程复习。", "틀린 문제를 다시 풀고 관련 강의를 복습해 보세요.")}
+                      </p>
+                      <div className="mt-5 grid grid-cols-2 gap-2">
+                        <button onClick={resetQuiz} className="min-h-12 rounded-xl bg-[var(--surface)] text-sm font-semibold text-[var(--ink)]">{tx("重新自测", "다시 풀기")}</button>
+                        <button onClick={() => setPracticeMode("rehearsal")} className="min-h-12 rounded-xl border border-white/20 text-sm font-semibold">{tx("去复述", "말하기 연습")}</button>
+                      </div>
+                    </div>
+                  )}
+                </section>
+              )}
+
+              {practiceMode === "cards" && (
+                <section className="mt-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-lg font-semibold">{tx("景点双语卡片", "명소 이중언어 카드")}</h2>
+                      <p className="mt-1 text-xs text-[var(--muted)]">{tx("先回忆，再翻面核对。", "먼저 떠올린 뒤 뒤집어 확인하세요.")}</p>
+                    </div>
+                    <span className="text-xs font-semibold text-[var(--muted)]">{cardIndex + 1}/18</span>
+                  </div>
+                  <button
+                    onClick={() => setCardFlipped((value) => !value)}
+                    className="mt-4 flex min-h-[340px] w-full flex-col justify-between rounded-2xl bg-[var(--ink)] p-6 text-left text-[var(--surface)] shadow-[0_18px_48px_rgba(14,47,42,.16)]"
+                    aria-label={tx("翻转学习卡片", "학습 카드 뒤집기")}
+                  >
+                    <span className="text-xs font-semibold opacity-60">{cardFlipped ? tx("讲解提示", "해설 힌트") : tx("中文名称", "중국어 명칭")}</span>
+                    {cardFlipped ? (
+                      <span>
+                        <b className="block text-2xl">{guideFor(currentCard.id)?.titleKo}</b>
+                        <span className="mt-4 block text-sm leading-7 opacity-75">{language === "ko" ? guideFor(currentCard.id)?.ko[0] : currentCard.description}</span>
+                        <span className="mt-5 inline-flex rounded-full bg-white/10 px-3 py-2 text-xs">{tx("再点一次返回正面", "한 번 더 눌러 앞면 보기")}</span>
+                      </span>
+                    ) : (
+                      <span>
+                        <b className="block text-4xl leading-tight">{guideFor(currentCard.id)?.titleZh ?? currentCard.title}</b>
+                        <span className="mt-3 block text-sm opacity-70">{currentCard.district} / {currentCard.category}</span>
+                        <span className="mt-8 inline-flex items-center gap-2 text-xs font-semibold"><ArrowClockwise size={16} /> {tx("点卡片查看韩文与要点", "카드를 눌러 한국어와 핵심 보기")}</span>
+                      </span>
+                    )}
+                    <span className="text-xs opacity-55">SHENYOU GUIDE LAB</span>
+                  </button>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => { setCardIndex((index) => Math.max(0, index - 1)); setCardFlipped(false); }}
+                      disabled={cardIndex === 0}
+                      className="min-h-12 rounded-xl bg-[var(--field)] text-sm font-semibold disabled:opacity-35"
+                    >
+                      {tx("上一张", "이전 카드")}
+                    </button>
+                    <button
+                      onClick={() => { setCardIndex((index) => (index + 1) % places.length); setCardFlipped(false); }}
+                      className="min-h-12 rounded-xl bg-[var(--accent)] text-sm font-semibold text-[var(--accent-ink)]"
+                    >
+                      {tx("下一张", "다음 카드")}
+                    </button>
+                  </div>
+                </section>
+              )}
+
+              {practiceMode === "rehearsal" && (
+                <section className="mt-6">
+                  <div className="rounded-2xl bg-[var(--soft)] p-5">
+                    <p className="text-xs font-semibold text-[var(--accent)]">{tx("60 秒讲解任务", "60초 해설 과제")}</p>
+                    <h2 className="mt-2 text-2xl font-semibold">{pick(language, guideFor(nextCourse.id)?.titleZh ?? nextCourse.title, guideFor(nextCourse.id)?.titleKo ?? nextCourse.title)}</h2>
+                    <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{tx("不看正文，按下面结构完成一次口头复述。本功能不录音，也不使用语音读报。", "본문을 보지 않고 아래 구조에 따라 말해 보세요. 녹음과 음성 읽기는 사용하지 않습니다.")}</p>
+                  </div>
+                  <div className="mt-4 grid gap-2">
+                    {[
+                      tx("10 秒：中文名称、位置与一句定位", "10초: 중국어 명칭, 위치와 한 문장 소개"),
+                      tx("30 秒：讲清 3 个核心事实", "30초: 핵심 사실 3개 설명"),
+                      tx("15 秒：加入交通或参观提示", "15초: 교통 또는 관람 안내"),
+                      tx("5 秒：自然收尾并引导游客", "5초: 자연스럽게 마무리하고 관람객 안내"),
+                    ].map((item, index) => (
+                      <div key={item} className="flex min-h-16 items-center gap-3 rounded-xl border border-[var(--line)] p-4">
+                        <span className="grid size-8 shrink-0 place-items-center rounded-full bg-[var(--field)] text-xs font-semibold text-[var(--accent)]">{index + 1}</span>
+                        <span className="text-sm leading-6">{item}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={() => openPlace(nextCourse)} className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[var(--ink)] text-sm font-semibold text-[var(--surface)]">
+                    {tx("打开课程核对", "강의를 열어 확인")} <ArrowRight size={16} />
+                  </button>
+                </section>
+              )}
+            </>
+          )}
+
+          {false && activeTab === "planner" && (
             <>
               {renderHeader(
                 "我的行程",
@@ -1621,10 +1959,10 @@ export default function Home() {
           {activeTab === "saved" && (
             <>
               {renderHeader(
-                "我的",
-                "내 여행",
-                "收藏、到访与个人笔记",
-                "저장, 방문과 개인 메모",
+                "我的学习",
+                "내 학습",
+                "课程进度、收藏与备课笔记",
+                "강의 진도, 저장과 수업 준비 메모",
               )}
               <div className="mt-6 grid grid-cols-3 gap-2">
                 {(
@@ -1637,11 +1975,11 @@ export default function Home() {
                       Icon: BookmarkSimple,
                     },
                     {
-                      id: "visited",
-                      zh: "到访",
-                      ko: "방문",
-                      count: appState.visited.length,
-                      Icon: Footprints,
+                      id: "learned",
+                      zh: "已学",
+                      ko: "학습 완료",
+                      count: appState.learned.length,
+                      Icon: CheckCircle,
                     },
                     {
                       id: "notes",
@@ -1700,10 +2038,10 @@ export default function Home() {
                   )}
                 </>
               )}
-              {savedView === "visited" && (
+              {savedView === "learned" && (
                 <div className="mt-6 grid gap-1">
                   {places
-                    .filter((place) => appState.visited.includes(place.id))
+                    .filter((place) => appState.learned.includes(place.id))
                     .map((place) => (
                       <PlaceRow
                         key={place.id}
@@ -1712,20 +2050,20 @@ export default function Home() {
                         onOpen={() => openPlace(place)}
                       />
                     ))}
-                  {!appState.visited.length && (
+                  {!appState.learned.length && (
                     <div className="rounded-xl border border-dashed border-[var(--line)] px-6 py-12 text-center">
-                      <Footprints size={30} className="mx-auto text-[var(--accent)]" />
+                      <CheckCircle size={30} className="mx-auto text-[var(--accent)]" />
                       <h3 className="mt-3 font-semibold">
-                        {tx("还没有到访记录", "방문 기록이 없습니다")}
+                        {tx("还没有完成课程", "완료한 강의가 없습니다")}
                       </h3>
                       <p className="mt-1 text-sm text-[var(--muted)]">
-                        {tx("在景点详情中标记到访。", "명소 상세에서 방문을 표시하세요.")}
+                        {tx("学完讲解词后，在课程详情中标记完成。", "해설문을 학습한 뒤 강의 상세에서 완료로 표시하세요.")}
                       </p>
                       <button
                         onClick={() => changeTab("discover")}
                         className="mt-5 rounded-lg bg-[var(--ink)] px-4 py-3 text-sm font-semibold text-[var(--surface)] active:scale-[.98]"
                       >
-                        {tx("浏览景点", "명소 보기")}
+                        {tx("选择课程", "강의 선택")}
                       </button>
                     </div>
                   )}
@@ -1782,11 +2120,11 @@ export default function Home() {
         >
           <div className="grid grid-cols-5">
             {[
-              { id: "home", zh: "首页", ko: "홈", Icon: House },
-              { id: "discover", zh: "景点", ko: "명소", Icon: Compass },
-              { id: "map", zh: "地图", ko: "지도", Icon: MapTrifold },
-              { id: "planner", zh: "行程", ko: "일정", Icon: CalendarDots },
-              { id: "saved", zh: "我的", ko: "내 여행", Icon: UserCircle },
+              { id: "home", zh: "学习", ko: "학습", Icon: House },
+              { id: "discover", zh: "课程", ko: "강의", Icon: Compass },
+              { id: "map", zh: "实地", ko: "현장", Icon: MapTrifold },
+              { id: "planner", zh: "练习", ko: "연습", Icon: IdentificationCard },
+              { id: "saved", zh: "我的", ko: "내 학습", Icon: UserCircle },
             ].map(({ id, zh, ko, Icon }) => (
               <button
                 key={id}
@@ -1812,6 +2150,56 @@ export default function Home() {
             aria-live="polite"
           >
             {toast}
+          </div>
+        )}
+
+        {practiceExitOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-end justify-center bg-[#071210]/60 px-3"
+            role="dialog"
+            aria-modal="true"
+            aria-label={tx("退出练习", "연습 나가기")}
+            onClick={() => setPracticeExitOpen(false)}
+          >
+            <div
+              className="sheet mb-3 w-full max-w-[496px] rounded-2xl bg-[var(--surface)] p-5 pb-[max(20px,env(safe-area-inset-bottom))] shadow-2xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold text-[var(--accent)]">{tx("本轮练习尚未完成", "이번 연습이 아직 끝나지 않았습니다")}</p>
+                  <h2 className="mt-2 text-2xl font-semibold">{tx("现在退出吗？", "지금 나갈까요?")}</h2>
+                </div>
+                <button
+                  onClick={() => setPracticeExitOpen(false)}
+                  className="grid size-11 shrink-0 place-items-center rounded-xl bg-[var(--field)]"
+                  aria-label={tx("关闭退出界面", "나가기 화면 닫기")}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <p className="mt-4 text-sm leading-6 text-[var(--muted)]">
+                {tx("已完成的学习记录会保留，本轮尚未提交的自测进度将结束。", "완료한 학습 기록은 유지되지만 아직 제출하지 않은 퀴즈 진행은 종료됩니다.")}
+              </p>
+              <div className="mt-6 grid gap-2">
+                <button
+                  onClick={() => setPracticeExitOpen(false)}
+                  className="min-h-12 rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--accent-ink)]"
+                >
+                  {tx("继续练习", "계속 연습")}
+                </button>
+                <button
+                  onClick={() => {
+                    setPracticeExitOpen(false);
+                    resetQuiz();
+                    changeTab("home");
+                  }}
+                  className="min-h-12 rounded-xl border border-[var(--line)] px-4 text-sm font-semibold text-[var(--muted)]"
+                >
+                  {tx("退出到学习首页", "학습 홈으로 나가기")}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -1875,6 +2263,19 @@ export default function Home() {
                       {language === "ko" ? guide.titleZh : guide.titleKo}
                     </p>
                   </div>
+                  <section className="mt-5 rounded-2xl bg-[var(--soft)] p-4">
+                    <div className="flex items-center justify-between">
+                      <b className="text-sm text-[var(--accent)]">{tx("本课学习目标", "이번 강의 학습 목표")}</b>
+                      <span className="text-[10px] font-semibold text-[var(--muted)]">5 MIN</span>
+                    </div>
+                    <div className="mt-3 grid gap-2">
+                      {(language === "ko" ? learningGoals(selectedPlace.id).ko : learningGoals(selectedPlace.id).zh).map((goal) => (
+                        <span key={goal} className="flex items-start gap-2 text-xs leading-5 text-[var(--muted)]">
+                          <CheckCircle size={15} className="mt-0.5 shrink-0 text-[var(--accent)]" /> {goal}
+                        </span>
+                      ))}
+                    </div>
+                  </section>
                   <div className="mt-5 grid grid-cols-2 gap-2 text-xs">
                     <span className="rounded-xl bg-[var(--field)] p-3">
                       <Clock size={16} className="mb-2 text-[var(--accent)]" />
@@ -1935,20 +2336,19 @@ export default function Home() {
                       {tx("收藏", "저장")}
                     </button>
                     <button
-                      onClick={() => toggleList("visited", selectedPlace.id)}
-                      aria-pressed={appState.visited.includes(selectedPlace.id)}
-                      className={`grid min-h-14 place-items-center gap-1 rounded-lg p-2 text-[11px] ${appState.visited.includes(selectedPlace.id) ? "bg-[var(--soft)] text-[var(--accent)]" : "bg-[var(--field)]"}`}
+                      onClick={() => toggleList("learned", selectedPlace.id)}
+                      aria-pressed={appState.learned.includes(selectedPlace.id)}
+                      className={`grid min-h-14 place-items-center gap-1 rounded-lg p-2 text-[11px] ${appState.learned.includes(selectedPlace.id) ? "bg-[var(--soft)] text-[var(--accent)]" : "bg-[var(--field)]"}`}
                     >
-                      <Footprints size={18} />
-                      {tx("到访", "방문")}
+                      <CheckCircle size={18} weight={appState.learned.includes(selectedPlace.id) ? "fill" : "regular"} />
+                      {tx("学完", "학습 완료")}
                     </button>
                     <button
-                      onClick={() => toggleList("plan", selectedPlace.id)}
-                      aria-pressed={appState.plan.includes(selectedPlace.id)}
-                      className={`grid min-h-14 place-items-center gap-1 rounded-lg p-2 text-[11px] ${appState.plan.includes(selectedPlace.id) ? "bg-[var(--soft)] text-[var(--accent)]" : "bg-[var(--field)]"}`}
+                      onClick={() => openPractice(selectedPlace.id, "quiz")}
+                      className="grid min-h-14 place-items-center gap-1 rounded-lg bg-[var(--field)] p-2 text-[11px]"
                     >
-                      <CalendarDots size={18} />
-                      {tx("行程", "일정")}
+                      <IdentificationCard size={18} />
+                      {tx("自测", "퀴즈")}
                     </button>
                     <button
                       onClick={() =>
@@ -1963,15 +2363,26 @@ export default function Home() {
                       {tx("分享", "공유")}
                     </button>
                   </div>
-                  <a
-                    href={`https://uri.amap.com/search?keyword=${encodeURIComponent(selectedPlace.title)}&city=深圳&view=map&src=shenyou`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-3 flex min-h-12 items-center justify-center gap-2 rounded-lg bg-[var(--accent)] px-3 py-3 text-sm font-semibold text-[var(--accent-ink)] active:scale-[.99]"
-                  >
-                    <NavigationArrow size={17} weight="fill" />
-                    {tx("地图导航", "지도 길찾기")}
-                  </a>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <a
+                      href={mainlandMapUrl(selectedPlace, "amap")}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex min-h-12 items-center justify-center gap-2 rounded-lg bg-[var(--accent)] px-3 py-3 text-sm font-semibold text-[var(--accent-ink)] active:scale-[.99]"
+                    >
+                      <NavigationArrow size={17} weight="fill" />
+                      {tx("高德地图", "가오더 지도")}
+                    </a>
+                    <a
+                      href={mainlandMapUrl(selectedPlace, "baidu")}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex min-h-12 items-center justify-center gap-2 rounded-lg bg-[var(--field)] px-3 py-3 text-sm font-semibold text-[var(--ink)] active:scale-[.99]"
+                    >
+                      <MapPin size={17} weight="fill" />
+                      {tx("百度地图", "바이두 지도")}
+                    </a>
+                  </div>
                   <button
                     onClick={() => copyChineseCard(selectedPlace)}
                     className="mt-3 flex min-h-16 w-full items-center gap-3 rounded-2xl border border-[var(--line)] p-4 text-left active:scale-[.99]"
@@ -1990,7 +2401,7 @@ export default function Home() {
                   <section className="mt-6">
                     <div className="flex items-center justify-between">
                       <h3 className="font-semibold">
-                        {tx("景点介绍", "명소 소개")}
+                        {tx("双语讲解词", "이중언어 해설문")}
                       </h3>
                       <span className="text-xs text-[var(--muted)]">
                         {language === "ko" ? "한국어" : "中文"}
@@ -2058,7 +2469,7 @@ export default function Home() {
                       htmlFor="place-note"
                       className="text-sm font-semibold"
                     >
-                      {tx("我的笔记", "내 메모")}
+                      {tx("备课笔记", "수업 준비 메모")}
                     </label>
                     <textarea
                       id="place-note"
@@ -2187,7 +2598,7 @@ export default function Home() {
                         className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--accent)] py-3.5 text-sm font-semibold text-[var(--accent-ink)]"
                       >
                         <CheckCircle size={18} />
-                        {tx("保存并退出", "저장하고 나가기")}
+                        {tx("保存学习进度", "학습 진도 저장")}
                       </button>
                       <button
                         onClick={() =>
@@ -2211,7 +2622,7 @@ export default function Home() {
                       className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--accent)] py-3.5 text-sm font-semibold text-[var(--accent-ink)]"
                     >
                       <NavigationArrow size={17} />
-                      {tx("开始路线", "코스 시작")}
+                      {tx("开始学习路径", "학습 코스 시작")}
                     </button>
                   )}
                 </div>

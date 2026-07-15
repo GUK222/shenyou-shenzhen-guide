@@ -13,19 +13,20 @@ async function render() {
     : worker(request);
 }
 
-test("server-renders the Shenzhen tour guide mobile app", async () => {
+test("server-renders the Shenzhen guide learning mobile app", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /SHENYOU \/ 深圳解说/);
-  assert.match(html, /今天，想看怎样的深圳/);
-  assert.match(html, /从海风到夜色，认识真实深圳/);
-  assert.match(html, /今天怎么逛/);
-  assert.match(html, /中韩双语城市导览、地图与行程规划/);
-  assert.match(html, /按心情认识深圳/);
-  assert.match(html, /韩国游客旅行准备/);
+  assert.match(html, /SHENYOU \/ 导游学院/);
+  assert.match(html, /今天，练哪一段讲解/);
+  assert.match(html, /今日学习/);
+  assert.match(html, /线路讲解训练/);
+  assert.match(html, /深圳中韩双语导游学习与备课/);
+  assert.match(html, /主题学习路径/);
+  assert.match(html, /导游现场工具箱/);
+  assert.match(html, /导游核心能力/);
   assert.match(html, /地图/);
   assert.match(html, /福田城市中轴/);
   assert.match(html, /深圳湾滨海线/);
@@ -58,12 +59,22 @@ test("contains the complete Shenzhen dataset and mobile app shell", async () => 
 
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.short_name, "深游");
-  assert.match(serviceWorker, /CACHE_NAME = "shenyou-v6"/);
+  assert.match(serviceWorker, /CACHE_NAME = "shenyou-v8"/);
   assert.match(serviceWorker, /images\/places\/shenzhen-bay\.jpg/);
   assert.match(travelData, /export const placeTravelDetails/);
-  assert.match(page, /한국 여행자를 위한 준비/);
+  assert.match(page, /가이드 현장 도구/);
+  assert.match(page, /知识自测/);
+  assert.match(page, /双语卡片/);
+  assert.match(page, /讲解复述/);
+  assert.match(page, /退出到学习首页/);
+  assert.match(page, /本轮练习尚未完成/);
+  assert.match(page, /appState\.learned/);
   assert.match(travelData, /支付宝或微信支付/);
-  assert.match(cityMap, /tile\.openstreetmap\.org/);
+  assert.match(cityMap, /uri\.amap\.com\/marker/);
+  assert.match(cityMap, /api\.map\.baidu\.com\/marker/);
+  assert.match(cityMap, /coordinate=wgs84&callnative=1/);
+  assert.doesNotMatch(cityMap, /openstreetmap|leaflet/i);
+  assert.match(page, /查看\$\{title\}/);
   assert.match(page, /type Tab = "home" \| "discover" \| "map" \| "planner" \| "saved"/);
   assert.match(page, /document\.execCommand\("copy"\)/);
   assert.doesNotMatch(data, /上海|徐汇/);

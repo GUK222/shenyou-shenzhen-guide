@@ -9,8 +9,8 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: "深游 SHENYOU｜深圳旅游解说 App",
-  description: "基于深圳旅游解说资料整理的手机端中韩景点导览、路线规划与收藏应用。",
+  title: "深游 SHENYOU｜深圳中韩双语导游学习 App",
+  description: "面向导游学习与备课的深圳中韩双语讲解词课程、知识练习、学习记录与实地认路应用。",
   applicationName: "深游",
   manifest: `${basePath}/manifest.webmanifest`,
   appleWebApp: { capable: true, title: "深游", statusBarStyle: "black-translucent" },
@@ -19,15 +19,15 @@ export const metadata: Metadata = {
     shortcut: `${basePath}/favicon.svg`,
   },
   openGraph: {
-    title: "深游 SHENYOU",
-    description: "把深圳景点，装进口袋里。",
+    title: "深游 SHENYOU 导游学院",
+    description: "深圳中韩双语导游学习、练习与备课工具。",
     type: "website",
     images: [{ url: `${basePath}/og.png`, width: 1733, height: 907, alt: "深游 SHENYOU 深圳景点随身讲解" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "深游 SHENYOU",
-    description: "深圳景点随身讲解",
+    description: "深圳中韩双语导游学习与备课",
     images: [`${basePath}/og.png`],
   },
 };

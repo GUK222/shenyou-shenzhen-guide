@@ -29,13 +29,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
 .no-scrollbar { scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .sheet { overscroll-behavior: contain; scrollbar-gutter: stable; }
-.leaflet-container { background: var(--field); color: var(--ink); font-family: inherit; }
-.leaflet-control-zoom a { color: var(--ink) !important; background: var(--surface) !important; border-color: var(--line) !important; }
-.leaflet-control-attribution { color: var(--muted); background: color-mix(in srgb, var(--surface) 88%, transparent) !important; font-size: 9px; }
-.leaflet-tooltip { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); box-shadow: 0 10px 28px rgba(20, 52, 47, .15); font-size: 11px; line-height: 1.45; }
-.leaflet-tooltip-top::before { border-top-color: var(--surface); }
-.leaflet-tile-pane { filter: saturate(.72) contrast(.96); }
-
 .route-bay { background: linear-gradient(145deg, #0d5c5a, #123d3b); }
 .route-city { background: linear-gradient(145deg, #315e58, #173b37); }
 .route-heritage { background: linear-gradient(145deg, #4f6b60, #2c4840); }
@@ -58,7 +51,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
     --accent: #35b7aa;
     --accent-ink: #071513;
   }
-  .leaflet-tile-pane { filter: brightness(.72) saturate(.55) contrast(1.05); }
 }
 
 @media (prefers-reduced-motion: reduce) {
