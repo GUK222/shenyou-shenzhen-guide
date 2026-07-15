@@ -1,7 +1,7 @@
-const CACHE_NAME = "shenyou-v5";
+const CACHE_NAME = "shenyou-v6";
 const BASE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, "");
 const ROOT_PATH = `${BASE_PATH}/`;
-const APP_SHELL = [ROOT_PATH, `${BASE_PATH}/manifest.webmanifest`, `${BASE_PATH}/favicon.svg`, `${BASE_PATH}/images/riverside.png`, `${BASE_PATH}/og.png`];
+const APP_SHELL = [ROOT_PATH, `${BASE_PATH}/manifest.webmanifest`, `${BASE_PATH}/favicon.svg`, `${BASE_PATH}/images/riverside.png`, `${BASE_PATH}/images/places/shenzhen-bay.jpg`, `${BASE_PATH}/og.png`];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));

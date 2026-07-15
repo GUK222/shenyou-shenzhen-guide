@@ -9,5 +9,29 @@ export default defineConfig({
   build: {
     outDir: "../dist-pages",
     emptyOutDir: true,
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          minSize: 20_000,
+          groups: [
+            {
+              name: "react",
+              test: /node_modules[\\/](react|react-dom)[\\/]/,
+              priority: 3,
+            },
+            {
+              name: "icons",
+              test: /node_modules[\\/]@phosphor-icons[\\/]/,
+              priority: 2,
+            },
+            {
+              name: "vendor",
+              test: /node_modules[\\/]/,
+              priority: 1,
+            },
+          ],
+        },
+      },
+    },
   },
 });

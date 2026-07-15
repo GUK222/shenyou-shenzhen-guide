@@ -8,13 +8,17 @@ import {
   ArrowRight,
   ArrowUp,
   BookmarkSimple,
+  Buildings,
   CalendarDots,
+  CaretDown,
   CheckCircle,
   Clock,
   Compass,
+  Copy,
   DownloadSimple,
   Footprints,
   House,
+  IdentificationCard,
   Info,
   MapPin,
   MapTrifold,
@@ -26,10 +30,14 @@ import {
   ShareNetwork,
   Shuffle,
   SquaresFour,
+  SunHorizon,
+  Ticket,
+  Train,
   Trash,
-  Translate,
   UploadSimple,
   UserCircle,
+  Wallet,
+  WifiHigh,
   X,
 } from "@phosphor-icons/react";
 import {
@@ -47,8 +55,17 @@ import {
   routeKorean,
   type Language,
 } from "./bilingual";
+import { CityMap } from "./CityMap";
+import {
+  districtStories,
+  estimateTravelMinutes,
+  photoCredits,
+  themedCollections,
+  travelDetailFor,
+  travelToolkits,
+} from "./travel-data";
 
-type Tab = "home" | "discover" | "routes" | "planner" | "saved";
+type Tab = "home" | "discover" | "map" | "planner" | "saved";
 type SavedView = "favorites" | "visited" | "notes";
 type PlaceView = "grid" | "list";
 
@@ -161,15 +178,22 @@ function PlaceCard({
       ? guide.titleZh
       : guide.titleKo
     : place.meta;
+  const detail = travelDetailFor(place.id);
   return (
-    <article className="relative min-h-[176px] rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4 shadow-[0_12px_30px_rgba(30,68,61,.045)] transition active:scale-[.99]">
-      <div className="flex items-start justify-between gap-3">
-        <span className="grid size-10 place-items-center rounded-lg bg-[var(--soft)] text-[var(--accent)]">
-          <MapPin size={21} weight="duotone" />
-        </span>
+    <article className="group relative overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)] shadow-[0_12px_34px_rgba(30,68,61,.06)] transition active:scale-[.99]">
+      <div className="relative aspect-[4/3] overflow-hidden bg-[var(--field)]">
+        <img
+          src={`${BASE_PATH}${detail?.image ?? "/images/riverside.png"}`}
+          alt={title}
+          width={640}
+          height={480}
+          loading="lazy"
+          decoding="async"
+          className="size-full object-cover transition duration-500 group-hover:scale-[1.025]"
+        />
         <button
           onClick={onSave}
-          className="grid size-11 place-items-center rounded-lg text-[var(--muted)] transition active:scale-90"
+          className="absolute right-3 top-3 grid size-11 place-items-center rounded-xl border border-white/30 bg-[#0b1715]/70 text-white shadow-lg backdrop-blur-md transition active:scale-90"
           aria-label={
             saved
               ? pick(language, `取消收藏${title}`, `${title} 저장 취소`)
@@ -183,7 +207,7 @@ function PlaceCard({
           />
         </button>
       </div>
-      <button onClick={onOpen} className="mt-4 block w-full text-left">
+      <button onClick={onOpen} className="block w-full p-4 text-left">
         <span className="text-[11px] font-semibold text-[var(--accent)]">
           {guide
             ? pick(language, guide.categoryZh, guide.categoryKo)
@@ -193,16 +217,17 @@ function PlaceCard({
             ? pick(language, guide.districtZh, guide.districtKo)
             : place.district}
         </span>
-        <h3 className="mt-1 text-base font-semibold leading-5">{title}</h3>
+        <h3 className="mt-1.5 text-base font-semibold leading-5">{title}</h3>
         <p className="mt-1 line-clamp-2 text-xs leading-5 text-[var(--muted)]">
           {secondary}
         </p>
-        <div className="mt-2 flex gap-2 text-[10px] font-semibold text-[var(--muted)]">
-          {guide && (
-            <span>
-              {guide.zh.length} 中 / {guide.ko.length} 한
-            </span>
-          )}
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-semibold text-[var(--muted)]">
+          <span className="inline-flex items-center gap-1">
+            <Clock size={12} /> {travelMeta(language, guide?.duration ?? "1-2小时")}
+          </span>
+          <span className="inline-flex min-w-0 items-center gap-1">
+            <Train size={12} /> {pick(language, "地铁可达", "지하철 이용")}
+          </span>
           {visited && (
             <span className="text-[var(--accent)]">
               {pick(language, "已到访", "방문 완료")}
@@ -224,13 +249,21 @@ function PlaceRow({
   onOpen: () => void;
 }) {
   const guide = guideFor(place.id);
+  const detail = travelDetailFor(place.id);
   return (
     <button
       onClick={onOpen}
-      className="grid min-h-20 w-full grid-cols-[48px_1fr_auto] items-center gap-3 rounded-xl border border-transparent px-2 py-3 text-left transition hover:border-[var(--line)] hover:bg-[var(--field)] active:scale-[.99]"
+      className="grid min-h-24 w-full grid-cols-[72px_1fr_auto] items-center gap-3 rounded-2xl border border-transparent p-2 text-left transition hover:border-[var(--line)] hover:bg-[var(--field)] active:scale-[.99]"
     >
-      <span className="grid size-12 place-items-center rounded-lg bg-[var(--soft)] text-[var(--accent)]">
-        <MapPin size={20} weight="duotone" />
+      <span className="h-20 overflow-hidden rounded-xl bg-[var(--field)]">
+        <img
+          src={`${BASE_PATH}${detail?.image ?? "/images/riverside.png"}`}
+          alt=""
+          width={180}
+          height={180}
+          loading="lazy"
+          className="size-full object-cover"
+        />
       </span>
       <span className="min-w-0">
         <span className="block text-[11px] font-semibold text-[var(--accent)]">
@@ -241,12 +274,15 @@ function PlaceRow({
         <span className="mt-0.5 block truncate text-sm font-semibold">
           {guide ? pick(language, guide.titleZh, guide.titleKo) : place.title}
         </span>
-        <span className="mt-0.5 block truncate text-xs text-[var(--muted)]">
+        <span className="mt-1 block truncate text-xs text-[var(--muted)]">
           {guide
             ? language === "ko"
               ? guide.titleZh
               : guide.titleKo
             : place.meta}
+        </span>
+        <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-medium text-[var(--muted)]">
+          <Clock size={11} /> {travelMeta(language, guide?.duration ?? "1-2小时")}
         </span>
       </span>
       <ArrowRight size={17} className="text-[var(--muted)]" />
@@ -271,6 +307,18 @@ function koreanTravelMeta(value: string) {
 
 function travelMeta(language: Language, value: string) {
   return pick(language, value, koreanTravelMeta(value));
+}
+
+function ToolkitIcon({ id, size = 21 }: { id: string; size?: number }) {
+  const Icon =
+    id === "payment"
+      ? Wallet
+      : id === "transport"
+        ? Train
+        : id === "border"
+          ? IdentificationCard
+          : WifiHigh;
+  return <Icon size={size} weight="duotone" />;
 }
 
 function RouteCard({
@@ -333,6 +381,8 @@ export default function Home() {
   const [selectedRoute, setSelectedRoute] = useState<TourRoute | null>(null);
   const [savedView, setSavedView] = useState<SavedView>("favorites");
   const [placeView, setPlaceView] = useState<PlaceView>("grid");
+  const [collectionFilter, setCollectionFilter] = useState<string | null>(null);
+  const [expandedToolkit, setExpandedToolkit] = useState<string | null>("payment");
   const [infoOpen, setInfoOpen] = useState(false);
   const [narrationExpanded, setNarrationExpanded] = useState(false);
   const [toast, setToast] = useState("");
@@ -388,17 +438,18 @@ export default function Home() {
       if (
         tab === "home" ||
         tab === "discover" ||
-        tab === "routes" ||
+        tab === "map" ||
         tab === "planner" ||
         tab === "saved"
       )
         setActiveTab(tab);
+      else if (tab === "routes") setActiveTab("home");
       const place = places.find((item) => item.slug === params.get("place"));
       const route = tourRoutes.find((item) => item.id === params.get("route"));
       if (place) openPlace(place);
       else if (route) {
         setSelectedRoute(route);
-        setActiveTab("routes");
+        setActiveTab("home");
       }
     });
   }, [storageReady]);
@@ -455,17 +506,19 @@ export default function Home() {
       activeTab === "saved" && savedView === "favorites"
         ? places.filter((place) => appState.saved.includes(place.id))
         : places;
+    const collection = themedCollections.find((item) => item.id === collectionFilter);
     return source.filter((place) => {
       const guide = guideFor(place.id);
       const categoryMatch = category === "全部" || place.category === category;
+      const collectionMatch = !collection || collection.placeIds.includes(place.id);
       const queryMatch =
         !keyword ||
         `${place.title}${place.category}${place.district}${place.meta}${place.description}${guide?.search ?? ""}`
           .toLocaleLowerCase()
           .includes(keyword);
-      return categoryMatch && queryMatch;
+      return categoryMatch && collectionMatch && queryMatch;
     });
-  }, [activeTab, appState.saved, category, query, savedView]);
+  }, [activeTab, appState.saved, category, collectionFilter, query, savedView]);
 
   const activeRoute =
     tourRoutes.find((route) => route.id === appState.activeRouteId) ?? null;
@@ -486,6 +539,30 @@ export default function Home() {
     toastTimer.current = setTimeout(() => setToast(""), 2200);
   }
 
+  async function copyText(text: string) {
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return;
+      } catch {
+        // Some mobile webviews expose Clipboard API but reject the write.
+      }
+    }
+
+    const field = document.createElement("textarea");
+    field.value = text;
+    field.readOnly = true;
+    field.style.position = "fixed";
+    field.style.inset = "0 auto auto -9999px";
+    document.body.appendChild(field);
+    field.focus();
+    field.select();
+    field.setSelectionRange(0, field.value.length);
+    const copied = document.execCommand("copy");
+    field.remove();
+    if (!copied) throw new Error("Copy is unavailable");
+  }
+
   function setLanguage(next: Language) {
     setAppState((current) => ({ ...current, language: next }));
   }
@@ -495,8 +572,21 @@ export default function Home() {
     setActiveTab(tab);
     setQuery("");
     setCategory("全部");
+    setCollectionFilter(null);
     const url = new URL(window.location.href);
     url.search = tab === "home" ? "" : `?tab=${tab}`;
+    window.history.replaceState({}, "", url);
+    window.scrollTo({ top: 0 });
+  }
+
+  function openCollection(id: string) {
+    closeOverlays();
+    setActiveTab("discover");
+    setCollectionFilter(id);
+    setCategory("全部");
+    setQuery("");
+    const url = new URL(window.location.href);
+    url.search = "?tab=discover";
     window.history.replaceState({}, "", url);
     window.scrollTo({ top: 0 });
   }
@@ -561,6 +651,52 @@ export default function Home() {
     showToast(tx("推荐行程已加入", "추천 일정이 추가되었습니다"));
   }
 
+  function applyRoutePlan(route: TourRoute) {
+    setAppState((current) => ({
+      ...current,
+      plan: route.placeIds,
+      activeRouteId: route.id,
+    }));
+    showToast(tx("已生成建议行程", "추천 일정을 만들었습니다"));
+  }
+
+  async function sharePlan() {
+    if (!plannedPlaces.length) {
+      showToast(tx("请先添加景点", "먼저 명소를 추가하세요"));
+      return;
+    }
+    const title = tx("我的深圳行程", "나의 선전 일정");
+    const text = plannedPlaces
+      .map((place, index) => {
+        const guide = guideFor(place.id);
+        return `${index + 1}. ${pick(language, guide?.titleZh ?? place.title, guide?.titleKo ?? place.title)}`;
+      })
+      .join("\n");
+    const url = new URL(window.location.href);
+    url.search = "?tab=planner";
+    try {
+      if (navigator.share) await navigator.share({ title, text, url: url.href });
+      else {
+        await copyText(`${title}\n${text}\n${url.href}`);
+        showToast(tx("行程已复制", "일정을 복사했습니다"));
+      }
+    } catch {
+      return;
+    }
+  }
+
+  async function copyChineseCard(place: Place) {
+    const guide = guideFor(place.id);
+    const detail = travelDetailFor(place.id);
+    const text = `${guide?.titleZh ?? place.title}\n${detail?.metroZh ?? place.district}`;
+    try {
+      await copyText(text);
+      showToast(tx("中文地点卡已复制", "중국어 장소 카드를 복사했습니다"));
+    } catch {
+      showToast(tx("请长按复制中文地点", "중국어 장소를 길게 눌러 복사하세요"));
+    }
+  }
+
   function clearPlan() {
     if (!plannedPlaces.length) return;
     if (!window.confirm(tx("确定清空当前行程吗？", "현재 일정을 비울까요?")))
@@ -606,7 +742,7 @@ export default function Home() {
     try {
       if (navigator.share) await navigator.share({ title, text, url });
       else {
-        await navigator.clipboard.writeText(url);
+        await copyText(url);
         showToast(tx("链接已复制", "링크를 복사했습니다"));
       }
     } catch {
@@ -792,51 +928,51 @@ export default function Home() {
           {activeTab === "home" && (
             <>
               {renderHeader(
-                "今天，从哪一段深圳开始？",
+                "今天，想看怎样的深圳？",
                 "오늘은 어떤 선전을 만나볼까요?",
-                "18 个中韩双语景点 / 4 条建议路线",
-                "18개 중한 명소 / 4개 추천 코스",
+                "中韩双语城市导览、地图与行程规划",
+                "중한 도시 가이드, 지도와 일정 계획",
               )}
-              <section className="relative mt-6 min-h-[286px] overflow-hidden rounded-xl bg-[#173a37] text-[#f4f8f6]">
+              <section className="relative mt-6 min-h-[320px] overflow-hidden rounded-2xl bg-[#173a37] text-[#f4f8f6]">
                 <img
-                  src={`${BASE_PATH}/images/riverside.png`}
-                  alt={tx("深圳湾滨海公共空间", "선전만 해안 공공 공간")}
+                  src={`${BASE_PATH}/images/places/shenzhen-bay.jpg`}
+                  alt={tx("深圳湾日落与城市天际线", "선전만 노을과 도시 스카이라인")}
                   width={1200}
                   height={800}
                   fetchPriority="high"
                   decoding="async"
                   className="absolute inset-0 size-full object-cover opacity-90"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0a2421]/95 via-[#0a2421]/16 to-transparent" />
-                <div className="relative flex min-h-[286px] flex-col justify-end p-5">
+                <div className="absolute inset-0 bg-gradient-to-t from-[#071b19]/95 via-[#071b19]/18 to-[#071b19]/10" />
+                <div className="relative flex min-h-[320px] flex-col justify-end p-6">
                   <p className="text-xs font-medium text-[rgba(244,248,246,.78)]">
-                    {tx("深圳湾滨海线 / 一日", "선전만 해안 코스 / 하루")}
+                    {tx("深圳湾滨海线 / 4 个停靠点", "선전만 해안 코스 / 4개 장소")}
                   </p>
-                  <h2 className="mt-1 max-w-[13ch] text-[28px] font-semibold leading-[1.1] tracking-[-0.04em]">
-                    {tx("从海风里，读懂深圳。", "바닷바람 속에서 선전을 읽다.")}
+                  <h2 className="mt-2 max-w-[13ch] text-[30px] font-semibold leading-[1.08] tracking-[-0.045em]">
+                    {tx("从海风到夜色，认识真实深圳。", "바닷바람부터 야경까지, 진짜 선전을 만나다.")}
                   </h2>
                   <button
                     onClick={() => openRoute(tourRoutes[1])}
-                    className="mt-5 inline-flex w-fit items-center gap-2 rounded-lg bg-[#f4f8f6] px-4 py-2.5 text-sm font-semibold text-[#12312e] active:scale-[.98]"
+                    className="mt-5 inline-flex min-h-12 w-fit items-center gap-2 rounded-xl bg-[#f4f8f6] px-4 py-3 text-sm font-semibold text-[#12312e] active:scale-[.98]"
                   >
                     {tx("打开路线", "코스 열기")} <ArrowRight size={15} />
                   </button>
                 </div>
               </section>
-              <section className="mt-4 grid grid-cols-3 gap-2" aria-label={tx("快捷入口", "빠른 메뉴")}>
+              <section className="mt-4 grid grid-cols-4 gap-2" aria-label={tx("快捷入口", "빠른 메뉴")}>
                 <button
-                  onClick={() => changeTab("discover")}
-                  className="min-h-24 rounded-xl bg-[var(--field)] p-3 text-left active:scale-[.98]"
+                  onClick={() => changeTab("map")}
+                  className="min-h-24 rounded-2xl bg-[var(--field)] p-3 text-left active:scale-[.98]"
                 >
-                  <Translate size={20} className="text-[var(--accent)]" />
-                  <b className="mt-3 block text-sm">18</b>
+                  <MapTrifold size={20} className="text-[var(--accent)]" />
+                  <b className="mt-3 block text-sm">MAP</b>
                   <span className="text-[10px] text-[var(--muted)]">
-                    {tx("中韩资料", "중한 자료")}
+                    {tx("看地图", "지도")}
                   </span>
                 </button>
                 <button
                   onClick={() => changeTab("planner")}
-                  className="min-h-24 rounded-xl bg-[var(--field)] p-3 text-left active:scale-[.98]"
+                  className="min-h-24 rounded-2xl bg-[var(--field)] p-3 text-left active:scale-[.98]"
                 >
                   <CalendarDots size={20} className="text-[var(--accent)]" />
                   <b className="mt-3 block text-sm">{appState.plan.length}</b>
@@ -845,12 +981,22 @@ export default function Home() {
                   </span>
                 </button>
                 <button
+                  onClick={() => openCollection("first-day")}
+                  className="min-h-24 rounded-2xl bg-[var(--field)] p-3 text-left active:scale-[.98]"
+                >
+                  <Buildings size={20} className="text-[var(--accent)]" />
+                  <b className="mt-3 block text-sm">4</b>
+                  <span className="text-[10px] text-[var(--muted)]">
+                    {tx("首次必看", "첫 여행")}
+                  </span>
+                </button>
+                <button
                   onClick={() => {
                     const place =
                       places[Math.floor(Math.random() * places.length)];
                     openPlace(place);
                   }}
-                  className="min-h-24 rounded-xl bg-[var(--field)] p-3 text-left active:scale-[.98]"
+                  className="min-h-24 rounded-2xl bg-[var(--field)] p-3 text-left active:scale-[.98]"
                 >
                   <Shuffle size={20} className="text-[var(--accent)]" />
                   <b className="mt-3 block text-sm">GO</b>
@@ -902,6 +1048,38 @@ export default function Home() {
                 </section>
               )}
               <section className="mt-8">
+                <h2 className="text-xl font-semibold tracking-[-0.03em]">
+                  {tx("按心情认识深圳", "취향으로 만나는 선전")}
+                </h2>
+                <p className="mt-1 text-sm text-[var(--muted)]">
+                  {tx("不只看景点，也看城市的不同侧面。", "명소뿐 아니라 도시의 여러 얼굴을 만나보세요.")}
+                </p>
+                <div className="no-scrollbar -mx-5 mt-4 flex snap-x gap-3 overflow-x-auto px-5 pb-2">
+                  {themedCollections.map((collection) => (
+                    <button
+                      key={collection.id}
+                      onClick={() => openCollection(collection.id)}
+                      className="w-[78%] shrink-0 snap-start overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)] text-left active:scale-[.99]"
+                    >
+                      <img
+                        src={`${BASE_PATH}${collection.image}`}
+                        alt={tx(collection.titleZh, collection.titleKo)}
+                        width={640}
+                        height={360}
+                        loading="lazy"
+                        className="aspect-[16/9] w-full object-cover"
+                      />
+                      <span className="block p-4">
+                        <b className="block text-base">{tx(collection.titleZh, collection.titleKo)}</b>
+                        <span className="mt-1 block text-xs leading-5 text-[var(--muted)]">
+                          {tx(collection.subtitleZh, collection.subtitleKo)}
+                        </span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+              <section className="mt-8">
                 <div className="flex items-end justify-between">
                   <div>
                     <h2 className="text-xl font-semibold tracking-[-0.03em]">
@@ -915,10 +1093,10 @@ export default function Home() {
                     </p>
                   </div>
                   <button
-                    onClick={() => changeTab("routes")}
+                    onClick={() => changeTab("planner")}
                     className="text-xs font-semibold text-[var(--accent)]"
                   >
-                    {tx("全部路线", "전체 코스")}
+                    {tx("生成行程", "일정 만들기")}
                   </button>
                 </div>
                 <div className="no-scrollbar -mx-5 mt-4 flex snap-x gap-3 overflow-x-auto px-5 pb-2">
@@ -935,6 +1113,65 @@ export default function Home() {
                       />
                     </div>
                   ))}
+                </div>
+              </section>
+              <section className="mt-8">
+                <h2 className="text-xl font-semibold tracking-[-0.03em]">
+                  {tx("从街区开始", "지역부터 살펴보기")}
+                </h2>
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  {districtStories.map((district, index) => (
+                    <button
+                      key={district.zh}
+                      onClick={() => {
+                        setActiveTab("discover");
+                        setCollectionFilter(null);
+                        setQuery(district.zh);
+                        setCategory("全部");
+                        window.scrollTo({ top: 0 });
+                      }}
+                      className={`min-h-36 rounded-2xl p-4 text-left active:scale-[.99] ${index === 0 ? "col-span-2 bg-[var(--ink)] text-[var(--surface)]" : "bg-[var(--field)]"}`}
+                    >
+                      <Buildings size={21} className={index === 0 ? "text-[var(--accent)]" : "text-[var(--accent)]"} />
+                      <b className="mt-7 block text-lg">{tx(district.zh, district.ko)}</b>
+                      <span className={`mt-1 block text-xs leading-5 ${index === 0 ? "opacity-70" : "text-[var(--muted)]"}`}>
+                        {tx(district.noteZh, district.noteKo)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+              <section className="mt-8">
+                <h2 className="text-xl font-semibold tracking-[-0.03em]">
+                  {tx("韩国游客旅行准备", "한국 여행자를 위한 준비")}
+                </h2>
+                <p className="mt-1 text-sm text-[var(--muted)]">
+                  {tx("支付、交通、通关和网络，出发前一次看懂。", "결제, 교통, 출입경과 통신을 출발 전에 확인하세요.")}
+                </p>
+                <div className="mt-4 overflow-hidden rounded-2xl border border-[var(--line)]">
+                  {travelToolkits.map((toolkit) => {
+                    const open = expandedToolkit === toolkit.id;
+                    return (
+                      <div key={toolkit.id} className="border-b border-[var(--line)] last:border-b-0">
+                        <button
+                          onClick={() => setExpandedToolkit(open ? null : toolkit.id)}
+                          aria-expanded={open}
+                          className="flex min-h-16 w-full items-center gap-3 px-4 py-3 text-left active:bg-[var(--field)]"
+                        >
+                          <span className="grid size-10 place-items-center rounded-xl bg-[var(--soft)] text-[var(--accent)]">
+                            <ToolkitIcon id={toolkit.id} />
+                          </span>
+                          <b className="flex-1 text-sm">{tx(toolkit.titleZh, toolkit.titleKo)}</b>
+                          <CaretDown size={16} className={`text-[var(--muted)] transition ${open ? "rotate-180" : ""}`} />
+                        </button>
+                        {open && (
+                          <p className="px-4 pb-4 pl-[68px] text-sm leading-6 text-[var(--muted)]">
+                            {tx(toolkit.bodyZh, toolkit.bodyKo)}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </section>
               {recentPlaces.length > 0 && (
@@ -993,6 +1230,44 @@ export default function Home() {
                 "중국어와 한국어 전체 해설 검색",
               )}
               {renderSearch()}
+              {collectionFilter && (
+                <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-[var(--soft)] p-4">
+                  <div>
+                    <p className="text-xs font-semibold text-[var(--accent)]">
+                      {tx("主题筛选", "테마 필터")}
+                    </p>
+                    <b className="mt-1 block text-sm">
+                      {(() => {
+                        const item = themedCollections.find((collection) => collection.id === collectionFilter);
+                        return item ? tx(item.titleZh, item.titleKo) : "";
+                      })()}
+                    </b>
+                  </div>
+                  <button
+                    onClick={() => setCollectionFilter(null)}
+                    className="grid size-10 place-items-center rounded-xl bg-[var(--surface)] active:scale-95"
+                    aria-label={tx("清除主题筛选", "테마 필터 지우기")}
+                  >
+                    <X size={15} />
+                  </button>
+                </div>
+              )}
+              <button
+                onClick={() => {
+                  setActiveTab("map");
+                  window.scrollTo({ top: 0 });
+                }}
+                className="mt-4 flex min-h-16 w-full items-center gap-3 rounded-2xl bg-[var(--ink)] p-4 text-left text-[var(--surface)] active:scale-[.99]"
+              >
+                <span className="grid size-10 place-items-center rounded-xl bg-[var(--accent)] text-[var(--accent-ink)]">
+                  <MapTrifold size={20} weight="duotone" />
+                </span>
+                <span className="flex-1">
+                  <b className="block text-sm">{tx("在地图上查看", "지도에서 보기")}</b>
+                  <small className="mt-1 block opacity-70">{tx("按区域判断距离和顺路地点", "지역과 이동 거리를 한눈에 확인")}</small>
+                </span>
+                <ArrowRight size={17} />
+              </button>
               <section className="mt-7">
                 <div className="flex items-center justify-between gap-3">
                   <div>
@@ -1068,29 +1343,64 @@ export default function Home() {
                     </button>
                   </div>
                 )}
+                {plannedPlaces.length > 0 && (
+                  <div className="mt-3 flex items-center justify-between rounded-2xl bg-[var(--soft)] p-4 text-xs text-[var(--muted)]">
+                    <span>{tx("交通时间为距离估算，请以实时导航为准。", "이동 시간은 거리 기준 예상치이며 실시간 길찾기를 확인하세요.")}</span>
+                    <button
+                      onClick={() => changeTab("map")}
+                      className="ml-3 shrink-0 font-semibold text-[var(--accent)]"
+                    >
+                      {tx("看地图", "지도")}
+                    </button>
+                  </div>
+                )}
               </section>
             </>
           )}
 
-          {activeTab === "routes" && (
+          {activeTab === "map" && (
             <>
               {renderHeader(
-                "路线",
-                "추천 코스",
-                "区域串联与到访进度保存在本机",
-                "코스와 방문 진행 상황은 기기에 저장됩니다",
+                "深圳地图",
+                "선전 지도",
+                "筛选景点，点按标记查看中韩详情",
+                "명소를 고르고 지도 표시를 눌러 상세 정보를 확인하세요",
               )}
-              <section className="mt-7 grid gap-4">
-                {tourRoutes.map((route) => (
-                  <RouteCard
-                    key={route.id}
-                    route={route}
-                    language={language}
-                    completed={(appState.routeProgress[route.id] ?? []).length}
-                    active={appState.activeRouteId === route.id}
-                    onOpen={() => openRoute(route)}
-                  />
-                ))}
+              {renderSearch()}
+              <section className="mt-5">
+                <CityMap
+                  places={filteredPlaces}
+                  language={language}
+                  onOpen={openPlace}
+                />
+                <div className="mt-3 flex items-center justify-between text-xs text-[var(--muted)]">
+                  <span>{tx(`${filteredPlaces.length} 个地点`, `${filteredPlaces.length}개 장소`)}</span>
+                  <span>{tx("地图数据 © OpenStreetMap", "지도 데이터 © OpenStreetMap")}</span>
+                </div>
+              </section>
+              <section className="mt-8">
+                <h2 className="text-lg font-semibold">{tx("按区域查看", "지역별 보기")}</h2>
+                <div className="mt-3 grid gap-2">
+                  {districtStories.map((district) => (
+                    <button
+                      key={district.zh}
+                      onClick={() => {
+                        setQuery(district.zh);
+                        setCategory("全部");
+                      }}
+                      className="flex min-h-16 items-center gap-3 rounded-2xl bg-[var(--field)] p-4 text-left active:scale-[.99]"
+                    >
+                      <span className="grid size-10 place-items-center rounded-xl bg-[var(--surface)] text-[var(--accent)]">
+                        <Buildings size={19} />
+                      </span>
+                      <span className="flex-1">
+                        <b className="block text-sm">{tx(district.zh, district.ko)}</b>
+                        <small className="mt-1 block text-[var(--muted)]">{tx(district.noteZh, district.noteKo)}</small>
+                      </span>
+                      <span className="text-xs font-semibold text-[var(--accent)]">{district.placeIds.length}</span>
+                    </button>
+                  ))}
+                </div>
               </section>
             </>
           )}
@@ -1100,10 +1410,30 @@ export default function Home() {
               {renderHeader(
                 "我的行程",
                 "나의 일정",
-                "添加景点并调整游览顺序",
-                "장소를 추가하고 방문 순서를 조정하세요",
+                "生成路线、调整顺序并分享给同行朋友",
+                "코스를 만들고 순서를 조정해 동행과 공유하세요",
               )}
-              <section className="mt-6 rounded-xl bg-[var(--field)] p-5">
+              <section className="mt-6">
+                <h2 className="text-lg font-semibold">{tx("快速生成", "빠른 일정 만들기")}</h2>
+                <div className="no-scrollbar -mx-5 mt-3 flex snap-x gap-2 overflow-x-auto px-5 pb-2">
+                  {tourRoutes.map((route) => (
+                    <button
+                      key={route.id}
+                      onClick={() => applyRoutePlan(route)}
+                      className="w-[64%] shrink-0 snap-start rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 text-left active:scale-[.99]"
+                    >
+                      <span className="text-[11px] font-semibold text-[var(--accent)]">
+                        {travelMeta(language, route.suggestedTime)} / {route.placeIds.length} {tx("站", "곳")}
+                      </span>
+                      <b className="mt-3 block text-sm">{tx(route.title, routeKorean[route.id].title)}</b>
+                      <small className="mt-1 block line-clamp-2 leading-5 text-[var(--muted)]">
+                        {tx(route.subtitle, routeKorean[route.id].subtitle)}
+                      </small>
+                    </button>
+                  ))}
+                </div>
+              </section>
+              <section className="mt-5 rounded-2xl bg-[var(--field)] p-5">
                 <div className="flex items-center justify-between">
                   <div className="flex gap-7">
                     <div>
@@ -1123,69 +1453,95 @@ export default function Home() {
                       </h2>
                     </div>
                   </div>
-                  <button
-                    onClick={clearPlan}
-                    disabled={!plannedPlaces.length}
-                    className="grid size-11 place-items-center rounded-xl bg-[var(--surface)] text-[var(--muted)] active:scale-95 disabled:opacity-40"
-                    aria-label={tx("清空行程", "일정 비우기")}
-                  >
-                    <Trash size={18} />
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={sharePlan}
+                      disabled={!plannedPlaces.length}
+                      className="grid size-11 place-items-center rounded-xl bg-[var(--surface)] text-[var(--accent)] active:scale-95 disabled:opacity-40"
+                      aria-label={tx("分享行程", "일정 공유")}
+                    >
+                      <ShareNetwork size={18} />
+                    </button>
+                    <button
+                      onClick={clearPlan}
+                      disabled={!plannedPlaces.length}
+                      className="grid size-11 place-items-center rounded-xl bg-[var(--surface)] text-[var(--muted)] active:scale-95 disabled:opacity-40"
+                      aria-label={tx("清空行程", "일정 비우기")}
+                    >
+                      <Trash size={18} />
+                    </button>
+                  </div>
                 </div>
               </section>
               <section className="mt-5">
                 {plannedPlaces.length ? (
-                  <div className="grid gap-3">
-                    {plannedPlaces.map((place, index) => (
-                      <div
-                        key={place.id}
-                        className="grid grid-cols-[38px_1fr_auto] items-center gap-3 rounded-xl border border-[var(--line)] p-3"
-                      >
-                        <span className="grid size-9 place-items-center rounded-lg bg-[var(--soft)] text-sm font-semibold text-[var(--accent)]">
-                          {index + 1}
-                        </span>
-                        <button
-                          onClick={() => openPlace(place)}
-                          className="min-w-0 text-left"
-                        >
-                          <b className="block truncate text-sm">
-                            {pick(
-                              language,
-                              guideFor(place.id)?.titleZh ?? place.title,
-                              guideFor(place.id)?.titleKo ?? place.title,
-                            )}
-                          </b>
-                          <span className="text-xs text-[var(--muted)]">
-                            {place.district}
-                          </span>
-                        </button>
-                        <div className="flex">
-                          <button
-                            onClick={() => movePlan(place.id, -1)}
-                            disabled={index === 0}
-                            className="grid size-9 place-items-center rounded-lg active:bg-[var(--field)] disabled:opacity-25"
-                            aria-label={tx("上移", "위로 이동")}
-                          >
-                            <ArrowUp size={15} />
-                          </button>
-                          <button
-                            onClick={() => movePlan(place.id, 1)}
-                            disabled={index === plannedPlaces.length - 1}
-                            className="grid size-9 place-items-center rounded-lg active:bg-[var(--field)] disabled:opacity-25"
-                            aria-label={tx("下移", "아래로 이동")}
-                          >
-                            <ArrowDown size={15} />
-                          </button>
-                          <button
-                            onClick={() => toggleList("plan", place.id)}
-                            className="grid size-9 place-items-center rounded-lg text-[var(--muted)] active:bg-[var(--field)]"
-                            aria-label={tx("从行程移除", "일정에서 삭제")}
-                          >
-                            <X size={15} />
-                          </button>
+                  <div>
+                    {plannedPlaces.map((place, index) => {
+                      const detail = travelDetailFor(place.id);
+                      const guide = guideFor(place.id);
+                      const next = plannedPlaces[index + 1];
+                      return (
+                        <div key={place.id}>
+                          <div className="grid grid-cols-[68px_1fr_auto] items-center gap-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3">
+                            <button onClick={() => openPlace(place)} className="relative h-16 overflow-hidden rounded-xl bg-[var(--field)]">
+                              <img
+                                src={`${BASE_PATH}${detail?.image ?? "/images/riverside.png"}`}
+                                alt=""
+                                width={160}
+                                height={160}
+                                loading="lazy"
+                                className="size-full object-cover"
+                              />
+                              <span className="absolute left-1.5 top-1.5 grid size-6 place-items-center rounded-lg bg-[#0a1715]/78 text-[10px] font-semibold text-white">
+                                {index + 1}
+                              </span>
+                            </button>
+                            <button onClick={() => openPlace(place)} className="min-w-0 text-left">
+                              <b className="block truncate text-sm">
+                                {pick(language, guide?.titleZh ?? place.title, guide?.titleKo ?? place.title)}
+                              </b>
+                              <span className="mt-1 block truncate text-xs text-[var(--muted)]">
+                                {pick(language, detail?.metroZh ?? place.district, detail?.metroKo ?? place.district)}
+                              </span>
+                            </button>
+                            <div className="grid grid-cols-2">
+                              <button
+                                onClick={() => movePlan(place.id, -1)}
+                                disabled={index === 0}
+                                className="grid size-9 place-items-center rounded-lg active:bg-[var(--field)] disabled:opacity-25"
+                                aria-label={tx("上移", "위로 이동")}
+                              >
+                                <ArrowUp size={15} />
+                              </button>
+                              <button
+                                onClick={() => movePlan(place.id, 1)}
+                                disabled={index === plannedPlaces.length - 1}
+                                className="grid size-9 place-items-center rounded-lg active:bg-[var(--field)] disabled:opacity-25"
+                                aria-label={tx("下移", "아래로 이동")}
+                              >
+                                <ArrowDown size={15} />
+                              </button>
+                              <button
+                                onClick={() => toggleList("plan", place.id)}
+                                className="col-span-2 grid h-9 place-items-center rounded-lg text-[var(--muted)] active:bg-[var(--field)]"
+                                aria-label={tx("从行程移除", "일정에서 삭제")}
+                              >
+                                <X size={15} />
+                              </button>
+                            </div>
+                          </div>
+                          {next && (
+                            <div className="ml-8 flex min-h-10 items-center gap-3 border-l border-dashed border-[var(--line)] pl-5 text-[11px] text-[var(--muted)]">
+                              <Train size={14} className="text-[var(--accent)]" />
+                              {tx(
+                                `预计约 ${estimateTravelMinutes(place.id, next.id)} 分钟`,
+                                `예상 이동 약 ${estimateTravelMinutes(place.id, next.id)}분`,
+                              )}
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="rounded-xl border border-dashed border-[var(--line)] px-6 py-12 text-center">
@@ -1428,7 +1784,7 @@ export default function Home() {
             {[
               { id: "home", zh: "首页", ko: "홈", Icon: House },
               { id: "discover", zh: "景点", ko: "명소", Icon: Compass },
-              { id: "routes", zh: "路线", ko: "코스", Icon: MapTrifold },
+              { id: "map", zh: "地图", ko: "지도", Icon: MapTrifold },
               { id: "planner", zh: "行程", ko: "일정", Icon: CalendarDots },
               { id: "saved", zh: "我的", ko: "내 여행", Icon: UserCircle },
             ].map(({ id, zh, ko, Icon }) => (
@@ -1463,10 +1819,22 @@ export default function Home() {
           (() => {
             const guide = guideFor(selectedPlace.id);
             if (!guide) return null;
+            const detail = travelDetailFor(selectedPlace.id);
             const paragraphs = language === "ko" ? guide.ko : guide.zh;
             const shown = narrationExpanded
               ? paragraphs
               : paragraphs.slice(0, 3);
+            const nearbyPlaces = places
+              .filter((place) => place.id !== selectedPlace.id)
+              .sort((a, b) => {
+                const aDetail = travelDetailFor(a.id);
+                const bDetail = travelDetailFor(b.id);
+                if (!detail || !aDetail || !bDetail) return 0;
+                const aDistance = Math.hypot(detail.lat - aDetail.lat, detail.lng - aDetail.lng);
+                const bDistance = Math.hypot(detail.lat - bDetail.lat, detail.lng - bDetail.lng);
+                return aDistance - bDistance;
+              })
+              .slice(0, 3);
             return (
               <div
                 className="fixed inset-0 z-40 flex items-end justify-center bg-[#071210]/55 px-3"
@@ -1479,49 +1847,77 @@ export default function Home() {
                   className="sheet mb-3 max-h-[90dvh] w-full max-w-[496px] overscroll-contain overflow-y-auto rounded-xl bg-[var(--surface)] p-5 pb-[max(20px,env(safe-area-inset-bottom))] shadow-2xl"
                   onClick={(event) => event.stopPropagation()}
                 >
-                  <div className="sticky -top-5 z-10 -mx-5 -mt-5 bg-[var(--surface)]/96 px-5 pb-3 pt-2 backdrop-blur-xl">
-                    <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-[var(--line)]" aria-hidden="true" />
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <span className="text-xs font-semibold text-[var(--accent)]">
-                          {pick(language, guide.categoryZh, guide.categoryKo)} /{" "}
-                          {pick(language, guide.districtZh, guide.districtKo)}
-                        </span>
-                        <h2 className="mt-1 text-2xl font-semibold tracking-[-0.035em]">
-                          {pick(language, guide.titleZh, guide.titleKo)}
-                        </h2>
-                        <p className="mt-1 text-xs text-[var(--muted)]">
-                          {language === "ko" ? guide.titleZh : guide.titleKo}
-                        </p>
-                      </div>
-                      <button
-                        onClick={closeOverlays}
-                        className="grid size-11 shrink-0 place-items-center rounded-xl bg-[var(--field)] active:scale-95"
-                        aria-label={tx("关闭", "닫기")}
-                      >
-                        <X size={18} />
-                      </button>
-                    </div>
+                  <div className="relative -mx-5 -mt-5 aspect-[16/10] overflow-hidden bg-[var(--field)]">
+                    <img
+                      src={`${BASE_PATH}${detail?.image ?? "/images/riverside.png"}`}
+                      alt={pick(language, guide.titleZh, guide.titleKo)}
+                      width={900}
+                      height={560}
+                      className="size-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#071210]/70 via-transparent to-[#071210]/15" />
+                    <button
+                      onClick={closeOverlays}
+                      className="absolute right-4 top-4 grid size-11 place-items-center rounded-xl border border-white/20 bg-[#071210]/68 text-white backdrop-blur-md active:scale-95"
+                      aria-label={tx("关闭", "닫기")}
+                    >
+                      <X size={18} />
+                    </button>
                   </div>
-                  <div className="mt-5 grid grid-cols-3 gap-2 text-xs">
-                    <span className="rounded-lg bg-[var(--field)] p-3">
+                  <div className="mt-5">
+                    <span className="text-xs font-semibold text-[var(--accent)]">
+                      {pick(language, guide.categoryZh, guide.categoryKo)} / {pick(language, guide.districtZh, guide.districtKo)}
+                    </span>
+                    <h2 className="mt-1 text-[28px] font-semibold leading-tight tracking-[-0.04em]">
+                      {pick(language, guide.titleZh, guide.titleKo)}
+                    </h2>
+                    <p className="mt-1 text-sm text-[var(--muted)]">
+                      {language === "ko" ? guide.titleZh : guide.titleKo}
+                    </p>
+                  </div>
+                  <div className="mt-5 grid grid-cols-2 gap-2 text-xs">
+                    <span className="rounded-xl bg-[var(--field)] p-3">
                       <Clock size={16} className="mb-2 text-[var(--accent)]" />
                       {travelMeta(language, guide.duration)}
                     </span>
-                    <span className="rounded-lg bg-[var(--field)] p-3">
-                      <MapPin size={16} className="mb-2 text-[var(--accent)]" />
-                      {pick(language, guide.districtZh, guide.districtKo)}
+                    <span className="rounded-xl bg-[var(--field)] p-3">
+                      <Ticket size={16} className="mb-2 text-[var(--accent)]" />
+                      {pick(language, detail?.priceZh ?? "现场确认", detail?.priceKo ?? "현장 확인")}
                     </span>
-                    <span className="rounded-lg bg-[var(--field)] p-3">
-                      <Translate
-                        size={16}
-                        className="mb-2 text-[var(--accent)]"
-                      />
-                      {language === "ko"
-                        ? `${guide.ko.length}개 문단`
-                        : `${guide.zh.length} 段`}
+                    <span className="rounded-xl bg-[var(--field)] p-3 leading-5">
+                      <Clock size={16} className="mb-2 text-[var(--accent)]" />
+                      {pick(language, detail?.hoursZh ?? "当天确认", detail?.hoursKo ?? "당일 확인")}
+                    </span>
+                    <span className="rounded-xl bg-[var(--field)] p-3 leading-5">
+                      <SunHorizon size={16} className="mb-2 text-[var(--accent)]" />
+                      {pick(language, detail?.bestZh ?? "白天", detail?.bestKo ?? "낮 시간")}
                     </span>
                   </div>
+                  {detail && (
+                    <div className="mt-3 rounded-2xl border border-[var(--line)] p-4">
+                      <div className="flex gap-3">
+                        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[var(--soft)] text-[var(--accent)]">
+                          <Train size={20} weight="duotone" />
+                        </span>
+                        <div>
+                          <b className="text-sm">{tx("怎么到达", "가는 방법")}</b>
+                          <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+                            {pick(language, detail.metroZh, detail.metroKo)}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="mt-3 border-t border-[var(--line)] pt-3 text-xs leading-5 text-[var(--muted)]">
+                        {pick(language, detail.tipZh, detail.tipKo)}
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {(language === "ko" ? detail.tagsKo : detail.tagsZh).map((tag) => (
+                          <span key={tag} className="rounded-full bg-[var(--soft)] px-3 py-1.5 text-[10px] font-semibold text-[var(--accent)]">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div className="mt-3 grid grid-cols-4 gap-2">
                     <button
                       onClick={() => toggleList("saved", selectedPlace.id)}
@@ -1576,6 +1972,21 @@ export default function Home() {
                     <NavigationArrow size={17} weight="fill" />
                     {tx("地图导航", "지도 길찾기")}
                   </a>
+                  <button
+                    onClick={() => copyChineseCard(selectedPlace)}
+                    className="mt-3 flex min-h-16 w-full items-center gap-3 rounded-2xl border border-[var(--line)] p-4 text-left active:scale-[.99]"
+                  >
+                    <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[var(--soft)] text-[var(--accent)]">
+                      <Copy size={19} />
+                    </span>
+                    <span className="flex-1">
+                      <b className="block text-sm">{tx("复制中文地点卡", "중국어 장소 카드 복사")}</b>
+                      <small className="mt-1 block leading-5 text-[var(--muted)]">
+                        {tx("打车或问路时直接展示", "택시나 길을 물을 때 바로 보여 주세요")}
+                      </small>
+                    </span>
+                    <span className="text-sm font-semibold">{guide.titleZh}</span>
+                  </button>
                   <section className="mt-6">
                     <div className="flex items-center justify-between">
                       <h3 className="font-semibold">
@@ -1604,7 +2015,45 @@ export default function Home() {
                         : tx("展开完整正文", "전체 본문 보기")}
                     </button>
                   </section>
-                  <section className="mt-6">
+                  <section className="mt-7">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold">{tx("附近顺路", "근처 함께 보기")}</h3>
+                      <span className="text-xs text-[var(--muted)]">{tx("按直线距离", "직선 거리 기준")}</span>
+                    </div>
+                    <div className="mt-3 grid gap-2">
+                      {nearbyPlaces.map((place) => {
+                        const nearbyGuide = guideFor(place.id);
+                        const nearbyDetail = travelDetailFor(place.id);
+                        return (
+                          <button
+                            key={place.id}
+                            onClick={() => openPlace(place)}
+                            className="grid grid-cols-[58px_1fr_auto] items-center gap-3 rounded-2xl bg-[var(--field)] p-2 text-left active:scale-[.99]"
+                          >
+                            <img
+                              src={`${BASE_PATH}${nearbyDetail?.image ?? "/images/riverside.png"}`}
+                              alt=""
+                              width={120}
+                              height={120}
+                              loading="lazy"
+                              className="size-[58px] rounded-xl object-cover"
+                            />
+                            <span>
+                              <b className="block text-sm">{pick(language, nearbyGuide?.titleZh ?? place.title, nearbyGuide?.titleKo ?? place.title)}</b>
+                              <small className="mt-1 block text-[var(--muted)]">
+                                {tx(
+                                  `预计约 ${estimateTravelMinutes(selectedPlace.id, place.id)} 分钟`,
+                                  `예상 이동 약 ${estimateTravelMinutes(selectedPlace.id, place.id)}분`,
+                                )}
+                              </small>
+                            </span>
+                            <ArrowRight size={16} className="mr-2 text-[var(--muted)]" />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                  <section className="mt-7">
                     <label
                       htmlFor="place-note"
                       className="text-sm font-semibold"
@@ -1850,12 +2299,34 @@ export default function Home() {
                   </b>
                 </button>
               </div>
+              <section className="mt-7">
+                <h3 className="font-semibold">{tx("韩国游客旅行准备", "한국 여행자 준비")}</h3>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  {travelToolkits.map((toolkit) => (
+                    <div key={toolkit.id} className="rounded-2xl bg-[var(--field)] p-3">
+                      <span className="text-[var(--accent)]"><ToolkitIcon id={toolkit.id} size={19} /></span>
+                      <b className="mt-3 block text-xs">{tx(toolkit.titleZh, toolkit.titleKo)}</b>
+                      <p className="mt-1 line-clamp-3 text-[10px] leading-4 text-[var(--muted)]">
+                        {tx(toolkit.bodyZh, toolkit.bodyKo)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </section>
               <p className="mt-5 text-xs leading-6 text-[var(--muted)]">
                 {tx(
                   "包含 18 个深圳景点的中文与韩文原始讲解。收藏、笔记与路线进度只保存在你的设备。",
                   "선전 18개 명소의 중국어와 한국어 원문 해설을 담았습니다. 저장, 메모와 코스 진행 상황은 이 기기에만 보관됩니다.",
                 )}
               </p>
+              <details className="mt-4 rounded-2xl border border-[var(--line)] p-4 text-xs text-[var(--muted)]">
+                <summary className="cursor-pointer font-semibold text-[var(--ink)]">
+                  {tx("照片来源与许可", "사진 출처와 라이선스")}
+                </summary>
+                <ul className="mt-3 grid gap-2 leading-5">
+                  {photoCredits.map((credit) => <li key={credit}>{credit}</li>)}
+                </ul>
+              </details>
             </div>
           </div>
         )}

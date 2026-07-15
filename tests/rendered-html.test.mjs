@@ -20,11 +20,13 @@ test("server-renders the Shenzhen tour guide mobile app", async () => {
 
   const html = await response.text();
   assert.match(html, /SHENYOU \/ 深圳解说/);
-  assert.match(html, /今天，从哪一段深圳开始/);
-  assert.match(html, /从海风里，读懂深圳/);
+  assert.match(html, /今天，想看怎样的深圳/);
+  assert.match(html, /从海风到夜色，认识真实深圳/);
   assert.match(html, /今天怎么逛/);
-  assert.match(html, /18 个中韩双语景点/);
-  assert.match(html, /4 条建议路线/);
+  assert.match(html, /中韩双语城市导览、地图与行程规划/);
+  assert.match(html, /按心情认识深圳/);
+  assert.match(html, /韩国游客旅行准备/);
+  assert.match(html, /地图/);
   assert.match(html, /福田城市中轴/);
   assert.match(html, /深圳湾滨海线/);
   assert.match(html, /甘坑客家人文/);
@@ -45,6 +47,8 @@ test("contains the complete Shenzhen dataset and mobile app shell", async () => 
   const bilingual = JSON.parse(await readFile(new URL("../app/bilingual-data.json", import.meta.url), "utf8"));
   const manifest = JSON.parse(await readFile(new URL("../public/manifest.webmanifest", import.meta.url), "utf8"));
   const serviceWorker = await readFile(new URL("../public/sw.js", import.meta.url), "utf8");
+  const travelData = await readFile(new URL("../app/travel-data.ts", import.meta.url), "utf8");
+  const cityMap = await readFile(new URL("../app/CityMap.tsx", import.meta.url), "utf8");
 
   for (const title of [
     "南头古城", "深圳湾北湾鹭港", "甘坑古镇", "莲花山公园", "华强北", "东门夜市",
@@ -54,7 +58,14 @@ test("contains the complete Shenzhen dataset and mobile app shell", async () => 
 
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.short_name, "深游");
-  assert.match(serviceWorker, /CACHE_NAME = "shenyou-v5"/);
+  assert.match(serviceWorker, /CACHE_NAME = "shenyou-v6"/);
+  assert.match(serviceWorker, /images\/places\/shenzhen-bay\.jpg/);
+  assert.match(travelData, /export const placeTravelDetails/);
+  assert.match(page, /한국 여행자를 위한 준비/);
+  assert.match(travelData, /支付宝或微信支付/);
+  assert.match(cityMap, /tile\.openstreetmap\.org/);
+  assert.match(page, /type Tab = "home" \| "discover" \| "map" \| "planner" \| "saved"/);
+  assert.match(page, /document\.execCommand\("copy"\)/);
   assert.doesNotMatch(data, /上海|徐汇/);
   assert.equal(bilingual.places.length, 18);
   assert.equal(bilingual.places.reduce((sum, place) => sum + place.zh.length, 0), 204);
