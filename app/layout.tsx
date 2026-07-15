@@ -10,7 +10,7 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: "深游 SHENYOU｜深圳旅游解说 App",
-  description: "基于深圳旅游解说资料整理的手机端景点导览、收藏与语音讲解应用。",
+  description: "基于深圳旅游解说资料整理的手机端中韩景点导览、路线规划与收藏应用。",
   applicationName: "深游",
   manifest: `${basePath}/manifest.webmanifest`,
   appleWebApp: { capable: true, title: "深游", statusBarStyle: "black-translucent" },

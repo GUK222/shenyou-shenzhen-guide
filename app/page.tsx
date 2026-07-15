@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowClockwise,
   ArrowDown,
@@ -18,12 +18,14 @@ import {
   Info,
   MapPin,
   MapTrifold,
+  ListBullets,
   MagnifyingGlass,
   NavigationArrow,
   NotePencil,
   Plus,
   ShareNetwork,
   Shuffle,
+  SquaresFour,
   Trash,
   Translate,
   UploadSimple,
@@ -48,6 +50,7 @@ import {
 
 type Tab = "home" | "discover" | "routes" | "planner" | "saved";
 type SavedView = "favorites" | "visited" | "notes";
+type PlaceView = "grid" | "list";
 
 type AppState = {
   language: Language;
@@ -159,14 +162,14 @@ function PlaceCard({
       : guide.titleKo
     : place.meta;
   return (
-    <article className="relative min-h-[184px] rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4 shadow-[0_12px_30px_rgba(30,68,61,.045)] transition active:scale-[.99]">
+    <article className="relative min-h-[176px] rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4 shadow-[0_12px_30px_rgba(30,68,61,.045)] transition active:scale-[.99]">
       <div className="flex items-start justify-between gap-3">
         <span className="grid size-10 place-items-center rounded-lg bg-[var(--soft)] text-[var(--accent)]">
           <MapPin size={21} weight="duotone" />
         </span>
         <button
           onClick={onSave}
-          className="grid size-9 place-items-center rounded-full text-[var(--muted)] transition active:scale-90"
+          className="grid size-11 place-items-center rounded-lg text-[var(--muted)] transition active:scale-90"
           aria-label={
             saved
               ? pick(language, `取消收藏${title}`, `${title} 저장 취소`)
@@ -180,7 +183,7 @@ function PlaceCard({
           />
         </button>
       </div>
-      <button onClick={onOpen} className="mt-5 block w-full text-left">
+      <button onClick={onOpen} className="mt-4 block w-full text-left">
         <span className="text-[11px] font-semibold text-[var(--accent)]">
           {guide
             ? pick(language, guide.categoryZh, guide.categoryKo)
@@ -190,8 +193,8 @@ function PlaceCard({
             ? pick(language, guide.districtZh, guide.districtKo)
             : place.district}
         </span>
-        <h3 className="mt-1 text-[15px] font-semibold leading-5">{title}</h3>
-        <p className="mt-1 line-clamp-1 text-xs leading-5 text-[var(--muted)]">
+        <h3 className="mt-1 text-base font-semibold leading-5">{title}</h3>
+        <p className="mt-1 line-clamp-2 text-xs leading-5 text-[var(--muted)]">
           {secondary}
         </p>
         <div className="mt-2 flex gap-2 text-[10px] font-semibold text-[var(--muted)]">
@@ -224,13 +227,18 @@ function PlaceRow({
   return (
     <button
       onClick={onOpen}
-      className="grid w-full grid-cols-[44px_1fr_auto] items-center gap-3 rounded-lg px-2 py-3 text-left transition active:scale-[.99]"
+      className="grid min-h-20 w-full grid-cols-[48px_1fr_auto] items-center gap-3 rounded-xl border border-transparent px-2 py-3 text-left transition hover:border-[var(--line)] hover:bg-[var(--field)] active:scale-[.99]"
     >
-      <span className="grid size-11 place-items-center rounded-lg bg-[var(--soft)] text-[var(--accent)]">
+      <span className="grid size-12 place-items-center rounded-lg bg-[var(--soft)] text-[var(--accent)]">
         <MapPin size={20} weight="duotone" />
       </span>
       <span className="min-w-0">
-        <span className="block truncate text-sm font-semibold">
+        <span className="block text-[11px] font-semibold text-[var(--accent)]">
+          {guide
+            ? `${pick(language, guide.categoryZh, guide.categoryKo)} / ${pick(language, guide.districtZh, guide.districtKo)}`
+            : `${place.category} / ${place.district}`}
+        </span>
+        <span className="mt-0.5 block truncate text-sm font-semibold">
           {guide ? pick(language, guide.titleZh, guide.titleKo) : place.title}
         </span>
         <span className="mt-0.5 block truncate text-xs text-[var(--muted)]">
@@ -324,6 +332,7 @@ export default function Home() {
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const [selectedRoute, setSelectedRoute] = useState<TourRoute | null>(null);
   const [savedView, setSavedView] = useState<SavedView>("favorites");
+  const [placeView, setPlaceView] = useState<PlaceView>("grid");
   const [infoOpen, setInfoOpen] = useState(false);
   const [narrationExpanded, setNarrationExpanded] = useState(false);
   const [toast, setToast] = useState("");
@@ -335,6 +344,15 @@ export default function Home() {
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const language = appState.language;
   const tx = (zh: string, ko: string) => pick(language, zh, ko);
+  const closeOverlays = useCallback(() => {
+    setSelectedPlace(null);
+    setSelectedRoute(null);
+    setInfoOpen(false);
+    setNarrationExpanded(false);
+    const url = new URL(window.location.href);
+    url.search = activeTab === "home" ? "" : `?tab=${activeTab}`;
+    window.history.replaceState({}, "", url);
+  }, [activeTab]);
 
   useEffect(() => {
     let cancelled = false;
@@ -396,7 +414,10 @@ export default function Home() {
         .catch(() => undefined);
       return;
     }
-    navigator.serviceWorker.register(`${BASE_PATH}/sw.js`).catch(() => undefined);
+    navigator.serviceWorker
+      .register(`${BASE_PATH}/sw.js`)
+      .then((registration) => registration.update())
+      .catch(() => undefined);
     const capturePrompt = (event: Event) => {
       event.preventDefault();
       setInstallPrompt(event as InstallPromptEvent);
@@ -419,7 +440,7 @@ export default function Home() {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", closeOnEscape);
     };
-  }, [selectedPlace, selectedRoute, infoOpen]);
+  }, [selectedPlace, selectedRoute, infoOpen, closeOverlays]);
 
   useEffect(
     () => () => {
@@ -457,6 +478,7 @@ export default function Home() {
   const plannedPlaces = appState.plan
     .map(getPlace)
     .filter((place): place is Place => Boolean(place));
+  const plannedDistricts = new Set(plannedPlaces.map((place) => place.district));
 
   function showToast(message: string) {
     setToast(message);
@@ -466,13 +488,6 @@ export default function Home() {
 
   function setLanguage(next: Language) {
     setAppState((current) => ({ ...current, language: next }));
-  }
-
-  function closeOverlays() {
-    setSelectedPlace(null);
-    setSelectedRoute(null);
-    setInfoOpen(false);
-    setNarrationExpanded(false);
   }
 
   function changeTab(tab: Tab) {
@@ -537,6 +552,23 @@ export default function Home() {
     });
   }
 
+  function addSuggestedPlan() {
+    const suggestion = (activeRoute ?? tourRoutes[0]).placeIds;
+    setAppState((current) => ({
+      ...current,
+      plan: [...new Set([...current.plan, ...suggestion])],
+    }));
+    showToast(tx("推荐行程已加入", "추천 일정이 추가되었습니다"));
+  }
+
+  function clearPlan() {
+    if (!plannedPlaces.length) return;
+    if (!window.confirm(tx("确定清空当前行程吗？", "현재 일정을 비울까요?")))
+      return;
+    setAppState((current) => ({ ...current, plan: [] }));
+    showToast(tx("行程已清空", "일정을 비웠습니다"));
+  }
+
   function startRoute(route: TourRoute) {
     setAppState((current) => ({
       ...current,
@@ -589,9 +621,10 @@ export default function Home() {
     );
     const anchor = document.createElement("a");
     anchor.href = URL.createObjectURL(blob);
-    anchor.download = "shenyou-backup.json";
+    anchor.download = `shenyou-backup-${new Date().toISOString().slice(0, 10)}.json`;
     anchor.click();
-    URL.revokeObjectURL(anchor.href);
+    window.setTimeout(() => URL.revokeObjectURL(anchor.href), 1000);
+    showToast(tx("备份已导出", "백업을 내보냈습니다"));
   }
 
   function importData(file?: File) {
@@ -649,21 +682,23 @@ export default function Home() {
     subtitleKo: string,
   ) {
     return (
-      <header>
+      <header className="pt-1">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
             SHENYOU / 深圳解说
           </p>
           <div className="flex items-center gap-2">
             <div
-              className="flex rounded-lg bg-[var(--field)] p-1"
+              className="flex rounded-xl bg-[var(--field)] p-1"
+              role="group"
               aria-label="语言"
             >
               {(["zh", "ko"] as Language[]).map((item) => (
                 <button
                   key={item}
                   onClick={() => setLanguage(item)}
-                  className={`rounded-md px-2.5 py-1.5 text-[10px] font-semibold transition ${language === item ? "bg-[var(--ink)] text-[var(--surface)]" : "text-[var(--muted)]"}`}
+                  aria-pressed={language === item}
+                  className={`grid min-h-9 min-w-10 place-items-center rounded-lg px-2 text-xs font-semibold transition active:scale-95 ${language === item ? "bg-[var(--surface)] text-[var(--ink)] shadow-[0_2px_8px_rgba(23,33,31,.08)]" : "text-[var(--muted)]"}`}
                 >
                   {item === "zh" ? "中" : "한"}
                 </button>
@@ -671,17 +706,17 @@ export default function Home() {
             </div>
             <button
               onClick={() => setInfoOpen(true)}
-              className="grid size-9 place-items-center rounded-lg border border-[var(--line)] bg-[var(--surface)] active:scale-95"
+              className="grid size-11 place-items-center rounded-xl border border-[var(--line)] bg-[var(--surface)] active:scale-95"
               aria-label={tx("应用设置", "앱 설정")}
             >
               <Info size={18} />
             </button>
           </div>
         </div>
-        <h1 className="mt-4 text-[26px] font-semibold leading-tight tracking-[-0.045em]">
+        <h1 className="mt-5 text-[28px] font-semibold leading-[1.16] tracking-[-0.045em]">
           {tx(titleZh, titleKo)}
         </h1>
-        <p className="mt-1 text-xs text-[var(--muted)]">
+        <p className="mt-1.5 text-[13px] leading-5 text-[var(--muted)]">
           {tx(subtitleZh, subtitleKo)}
         </p>
       </header>
@@ -691,12 +726,12 @@ export default function Home() {
   function renderSearch() {
     return (
       <>
-        <div className="mt-6 flex items-center gap-3 rounded-xl border border-[var(--line)] bg-[var(--field)] px-4 py-3.5 focus-within:border-[var(--accent)]">
+        <div className="mt-6 flex min-h-13 items-center gap-3 rounded-xl border border-[var(--line)] bg-[var(--field)] px-4 focus-within:border-[var(--accent)] focus-within:ring-2 focus-within:ring-[var(--accent)]/10">
           <MagnifyingGlass size={20} className="shrink-0 text-[var(--muted)]" />
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[var(--muted)]"
+            className="min-w-0 flex-1 bg-transparent py-3 text-sm outline-none placeholder:text-[var(--muted)]"
             placeholder={tx(
               "搜索中文、韩文、区域或正文",
               "중국어, 한국어, 지역과 본문 검색",
@@ -706,14 +741,18 @@ export default function Home() {
           {query && (
             <button
               onClick={() => setQuery("")}
-              className="grid size-7 place-items-center rounded-full bg-[var(--soft)]"
+              className="grid size-9 place-items-center rounded-lg bg-[var(--soft)] active:scale-95"
               aria-label={tx("清除搜索", "검색 지우기")}
             >
               <X size={14} />
             </button>
           )}
         </div>
-        <div className="no-scrollbar mt-4 flex gap-2 overflow-x-auto pb-1">
+        <div
+          className="no-scrollbar mt-4 flex snap-x gap-2 overflow-x-auto pb-1"
+          role="group"
+          aria-label={tx("景点分类", "명소 분류")}
+        >
           {categories.map((item) => {
             const ko = guidePlaces.find(
               (place) => place.categoryZh === item,
@@ -723,7 +762,7 @@ export default function Home() {
                 key={item}
                 onClick={() => setCategory(item)}
                 aria-pressed={category === item}
-                className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium transition active:scale-95 ${category === item ? "bg-[var(--ink)] text-[var(--surface)]" : "border border-[var(--line)] text-[var(--muted)]"}`}
+                className={`min-h-10 shrink-0 snap-start rounded-full px-4 py-2 text-sm font-medium transition active:scale-95 ${category === item ? "bg-[var(--ink)] text-[var(--surface)]" : "border border-[var(--line)] bg-[var(--surface)] text-[var(--muted)]"}`}
               >
                 {item === "全部" ? tx("全部", "전체") : tx(item, ko ?? item)}
               </button>
@@ -762,6 +801,10 @@ export default function Home() {
                 <img
                   src={`${BASE_PATH}/images/riverside.png`}
                   alt={tx("深圳湾滨海公共空间", "선전만 해안 공공 공간")}
+                  width={1200}
+                  height={800}
+                  fetchPriority="high"
+                  decoding="async"
                   className="absolute inset-0 size-full object-cover opacity-90"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0a2421]/95 via-[#0a2421]/16 to-transparent" />
@@ -780,20 +823,20 @@ export default function Home() {
                   </button>
                 </div>
               </section>
-              <section className="mt-4 grid grid-cols-3 gap-2">
+              <section className="mt-4 grid grid-cols-3 gap-2" aria-label={tx("快捷入口", "빠른 메뉴")}>
                 <button
                   onClick={() => changeTab("discover")}
-                  className="rounded-xl bg-[var(--field)] p-3 text-left active:scale-[.98]"
+                  className="min-h-24 rounded-xl bg-[var(--field)] p-3 text-left active:scale-[.98]"
                 >
                   <Translate size={20} className="text-[var(--accent)]" />
                   <b className="mt-3 block text-sm">18</b>
                   <span className="text-[10px] text-[var(--muted)]">
-                    {tx("双语讲解", "이중 언어")}
+                    {tx("中韩资料", "중한 자료")}
                   </span>
                 </button>
                 <button
                   onClick={() => changeTab("planner")}
-                  className="rounded-xl bg-[var(--field)] p-3 text-left active:scale-[.98]"
+                  className="min-h-24 rounded-xl bg-[var(--field)] p-3 text-left active:scale-[.98]"
                 >
                   <CalendarDots size={20} className="text-[var(--accent)]" />
                   <b className="mt-3 block text-sm">{appState.plan.length}</b>
@@ -807,7 +850,7 @@ export default function Home() {
                       places[Math.floor(Math.random() * places.length)];
                     openPlace(place);
                   }}
-                  className="rounded-xl bg-[var(--field)] p-3 text-left active:scale-[.98]"
+                  className="min-h-24 rounded-xl bg-[var(--field)] p-3 text-left active:scale-[.98]"
                 >
                   <Shuffle size={20} className="text-[var(--accent)]" />
                   <b className="mt-3 block text-sm">GO</b>
@@ -931,7 +974,7 @@ export default function Home() {
                     {tx("查看 18 个景点", "18개 명소 보기")}
                   </button>
                 </div>
-                <div className="mt-4 grid grid-cols-2 gap-3">
+                <div className="mt-4 grid grid-cols-1 gap-3 min-[390px]:grid-cols-2">
                   {featuredPlaceIds
                     .map(getPlace)
                     .filter((place): place is Place => Boolean(place))
@@ -951,17 +994,57 @@ export default function Home() {
               )}
               {renderSearch()}
               <section className="mt-7">
-                <div className="flex items-end justify-between">
-                  <h2 className="text-xl font-semibold tracking-[-0.03em]">
-                    {tx("资料里的深圳", "자료 속 선전")}
-                  </h2>
-                  <span className="text-xs text-[var(--muted)]">
-                    {filteredPlaces.length}
-                  </span>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-xl font-semibold tracking-[-0.03em]">
+                      {tx("资料里的深圳", "자료 속 선전")}
+                    </h2>
+                    <p className="mt-1 text-xs text-[var(--muted)]" aria-live="polite">
+                      {tx(
+                        `找到 ${filteredPlaces.length} 个景点`,
+                        `${filteredPlaces.length}개 명소를 찾았습니다`,
+                      )}
+                    </p>
+                  </div>
+                  <div
+                    className="flex rounded-xl bg-[var(--field)] p-1"
+                    role="group"
+                    aria-label={tx("显示方式", "보기 방식")}
+                  >
+                    {(
+                      [
+                        { id: "grid", Icon: SquaresFour, zh: "卡片", ko: "카드" },
+                        { id: "list", Icon: ListBullets, zh: "列表", ko: "목록" },
+                      ] as const
+                    ).map(({ id, Icon, zh, ko }) => (
+                      <button
+                        key={id}
+                        onClick={() => setPlaceView(id)}
+                        aria-pressed={placeView === id}
+                        aria-label={tx(zh, ko)}
+                        className={`grid size-10 place-items-center rounded-lg transition active:scale-95 ${placeView === id ? "bg-[var(--surface)] text-[var(--ink)] shadow-[0_2px_8px_rgba(23,33,31,.08)]" : "text-[var(--muted)]"}`}
+                      >
+                        <Icon size={18} weight={placeView === id ? "fill" : "regular"} />
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                  {filteredPlaces.map(placeCard)}
-                </div>
+                {placeView === "grid" ? (
+                  <div className="mt-4 grid grid-cols-1 gap-3 min-[390px]:grid-cols-2">
+                    {filteredPlaces.map(placeCard)}
+                  </div>
+                ) : (
+                  <div className="mt-4 grid gap-1">
+                    {filteredPlaces.map((place) => (
+                      <PlaceRow
+                        key={place.id}
+                        place={place}
+                        language={language}
+                        onOpen={() => openPlace(place)}
+                      />
+                    ))}
+                  </div>
+                )}
                 {filteredPlaces.length === 0 && (
                   <div className="mt-6 rounded-xl border border-dashed border-[var(--line)] px-6 py-12 text-center">
                     <Compass
@@ -971,6 +1054,9 @@ export default function Home() {
                     <h3 className="mt-3 font-semibold">
                       {tx("没有找到对应景点", "검색 결과가 없습니다")}
                     </h3>
+                    <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
+                      {tx("试试其他关键词或分类。", "다른 검색어나 분류를 선택해 보세요.")}
+                    </p>
                     <button
                       onClick={() => {
                         setQuery("");
@@ -1019,20 +1105,28 @@ export default function Home() {
               )}
               <section className="mt-6 rounded-xl bg-[var(--field)] p-5">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-[var(--muted)]">
-                      {tx("当前计划", "현재 일정")}
-                    </p>
-                    <h2 className="mt-1 text-xl font-semibold">
-                      {plannedPlaces.length} {tx("个景点", "개 명소")}
-                    </h2>
+                  <div className="flex gap-7">
+                    <div>
+                      <p className="text-xs text-[var(--muted)]">
+                        {tx("当前计划", "현재 일정")}
+                      </p>
+                      <h2 className="mt-1 text-xl font-semibold">
+                        {plannedPlaces.length} {tx("个景点", "개 명소")}
+                      </h2>
+                    </div>
+                    <div>
+                      <p className="text-xs text-[var(--muted)]">
+                        {tx("覆盖区域", "방문 지역")}
+                      </p>
+                      <h2 className="mt-1 text-xl font-semibold">
+                        {plannedDistricts.size} {tx("个", "곳")}
+                      </h2>
+                    </div>
                   </div>
                   <button
-                    onClick={() =>
-                      setAppState((current) => ({ ...current, plan: [] }))
-                    }
+                    onClick={clearPlan}
                     disabled={!plannedPlaces.length}
-                    className="grid size-10 place-items-center rounded-lg bg-[var(--surface)] text-[var(--muted)] disabled:opacity-40"
+                    className="grid size-11 place-items-center rounded-xl bg-[var(--surface)] text-[var(--muted)] active:scale-95 disabled:opacity-40"
                     aria-label={tx("清空行程", "일정 비우기")}
                   >
                     <Trash size={18} />
@@ -1069,20 +1163,23 @@ export default function Home() {
                           <button
                             onClick={() => movePlan(place.id, -1)}
                             disabled={index === 0}
-                            className="grid size-8 place-items-center disabled:opacity-25"
+                            className="grid size-9 place-items-center rounded-lg active:bg-[var(--field)] disabled:opacity-25"
+                            aria-label={tx("上移", "위로 이동")}
                           >
                             <ArrowUp size={15} />
                           </button>
                           <button
                             onClick={() => movePlan(place.id, 1)}
                             disabled={index === plannedPlaces.length - 1}
-                            className="grid size-8 place-items-center disabled:opacity-25"
+                            className="grid size-9 place-items-center rounded-lg active:bg-[var(--field)] disabled:opacity-25"
+                            aria-label={tx("下移", "아래로 이동")}
                           >
                             <ArrowDown size={15} />
                           </button>
                           <button
                             onClick={() => toggleList("plan", place.id)}
-                            className="grid size-8 place-items-center text-[var(--muted)]"
+                            className="grid size-9 place-items-center rounded-lg text-[var(--muted)] active:bg-[var(--field)]"
+                            aria-label={tx("从行程移除", "일정에서 삭제")}
                           >
                             <X size={15} />
                           </button>
@@ -1100,17 +1197,34 @@ export default function Home() {
                       {tx("还没有行程", "일정이 아직 없습니다")}
                     </h3>
                     <p className="mt-1 text-sm text-[var(--muted)]">
-                      {tx("从下面的景点中添加。", "아래 명소에서 추가하세요.")}
+                      {tx("可以从推荐路线开始，再按需要调整。", "추천 코스로 시작한 뒤 자유롭게 조정하세요.")}
                     </p>
+                    <button
+                      onClick={addSuggestedPlan}
+                      className="mt-5 rounded-lg bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-[var(--accent-ink)] active:scale-[.98]"
+                    >
+                      {tx("加入推荐行程", "추천 일정 추가")}
+                    </button>
                   </div>
                 )}
               </section>
               <section className="mt-8">
-                <h2 className="text-lg font-semibold">
-                  {tx("添加景点", "명소 추가")}
-                </h2>
+                <div className="flex items-end justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold">
+                      {tx("添加景点", "명소 추가")}
+                    </h2>
+                    <p className="mt-1 text-xs text-[var(--muted)]">
+                      {tx("搜索后点按加号即可加入", "검색 후 더하기 버튼을 누르세요")}
+                    </p>
+                  </div>
+                  <span className="text-xs text-[var(--muted)]">
+                    {filteredPlaces.filter((place) => !appState.plan.includes(place.id)).length}
+                  </span>
+                </div>
+                {renderSearch()}
                 <div className="mt-3 grid gap-2">
-                  {places
+                  {filteredPlaces
                     .filter((place) => !appState.plan.includes(place.id))
                     .map((place) => (
                       <button
@@ -1137,6 +1251,13 @@ export default function Home() {
                       </button>
                     ))}
                 </div>
+                {filteredPlaces.every((place) => appState.plan.includes(place.id)) && (
+                  <div className="mt-4 rounded-xl border border-dashed border-[var(--line)] px-5 py-8 text-center text-sm text-[var(--muted)]">
+                    {query || category !== "全部"
+                      ? tx("当前筛选下没有可添加的景点", "현재 조건에서 추가할 명소가 없습니다")
+                      : tx("18 个景点已全部加入行程", "18개 명소를 모두 일정에 추가했습니다")}
+                  </div>
+                )}
               </section>
             </>
           )}
@@ -1190,12 +1311,35 @@ export default function Home() {
               {savedView === "favorites" && (
                 <>
                   {renderSearch()}
-                  <div className="mt-5 grid grid-cols-2 gap-3">
+                  <div className="mt-5 grid grid-cols-1 gap-3 min-[390px]:grid-cols-2">
                     {filteredPlaces.map(placeCard)}
                   </div>
-                  {!appState.saved.length && (
+                  {!filteredPlaces.length && (
                     <div className="mt-6 rounded-xl border border-dashed border-[var(--line)] px-6 py-12 text-center">
-                      {tx("收藏夹还是空的", "저장한 장소가 없습니다")}
+                      <BookmarkSimple size={30} className="mx-auto text-[var(--accent)]" />
+                      <h3 className="mt-3 font-semibold">
+                        {appState.saved.length
+                          ? tx("没有符合筛选的收藏", "조건에 맞는 저장 장소가 없습니다")
+                          : tx("收藏夹还是空的", "저장한 장소가 없습니다")}
+                      </h3>
+                      <p className="mt-1 text-sm text-[var(--muted)]">
+                        {appState.saved.length
+                          ? tx("清除筛选即可查看全部收藏。", "필터를 지우면 모든 저장 장소를 볼 수 있습니다.")
+                          : tx("浏览景点时点按收藏即可保存。", "명소에서 저장 버튼을 누르면 여기에 표시됩니다.")}
+                      </p>
+                      <button
+                        onClick={() => {
+                          if (appState.saved.length) {
+                            setQuery("");
+                            setCategory("全部");
+                          } else changeTab("discover");
+                        }}
+                        className="mt-5 rounded-lg bg-[var(--ink)] px-4 py-3 text-sm font-semibold text-[var(--surface)] active:scale-[.98]"
+                      >
+                        {appState.saved.length
+                          ? tx("清除筛选", "필터 지우기")
+                          : tx("浏览景点", "명소 보기")}
+                      </button>
                     </div>
                   )}
                 </>
@@ -1214,7 +1358,19 @@ export default function Home() {
                     ))}
                   {!appState.visited.length && (
                     <div className="rounded-xl border border-dashed border-[var(--line)] px-6 py-12 text-center">
-                      {tx("还没有到访记录", "방문 기록이 없습니다")}
+                      <Footprints size={30} className="mx-auto text-[var(--accent)]" />
+                      <h3 className="mt-3 font-semibold">
+                        {tx("还没有到访记录", "방문 기록이 없습니다")}
+                      </h3>
+                      <p className="mt-1 text-sm text-[var(--muted)]">
+                        {tx("在景点详情中标记到访。", "명소 상세에서 방문을 표시하세요.")}
+                      </p>
+                      <button
+                        onClick={() => changeTab("discover")}
+                        className="mt-5 rounded-lg bg-[var(--ink)] px-4 py-3 text-sm font-semibold text-[var(--surface)] active:scale-[.98]"
+                      >
+                        {tx("浏览景点", "명소 보기")}
+                      </button>
                     </div>
                   )}
                 </div>
@@ -1243,7 +1399,19 @@ export default function Home() {
                     ))}
                   {!Object.values(appState.notes).some(Boolean) && (
                     <div className="rounded-xl border border-dashed border-[var(--line)] px-6 py-12 text-center">
-                      {tx("还没有个人笔记", "개인 메모가 없습니다")}
+                      <NotePencil size={30} className="mx-auto text-[var(--accent)]" />
+                      <h3 className="mt-3 font-semibold">
+                        {tx("还没有个人笔记", "개인 메모가 없습니다")}
+                      </h3>
+                      <p className="mt-1 text-sm text-[var(--muted)]">
+                        {tx("打开景点详情即可记录。", "명소 상세를 열어 메모를 남기세요.")}
+                      </p>
+                      <button
+                        onClick={() => changeTab("discover")}
+                        className="mt-5 rounded-lg bg-[var(--ink)] px-4 py-3 text-sm font-semibold text-[var(--surface)] active:scale-[.98]"
+                      >
+                        {tx("选择景点", "명소 선택")}
+                      </button>
                     </div>
                   )}
                 </div>
@@ -1253,7 +1421,7 @@ export default function Home() {
         </div>
 
         <nav
-          className="fixed inset-x-0 bottom-0 z-20 mx-auto max-w-[520px] border-t border-[var(--line)] bg-[var(--surface)]/94 px-2 pb-[max(9px,env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl"
+          className="fixed inset-x-0 bottom-0 z-20 mx-auto max-w-[520px] border-t border-[var(--line)] bg-[var(--surface)]/94 px-2 pb-[max(8px,env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl"
           aria-label={tx("主导航", "메인 탐색")}
         >
           <div className="grid grid-cols-5">
@@ -1267,13 +1435,15 @@ export default function Home() {
               <button
                 key={id}
                 onClick={() => changeTab(id as Tab)}
-                className={`flex flex-col items-center gap-1 py-1.5 text-[10px] font-medium transition active:scale-95 ${activeTab === id ? "text-[var(--accent)]" : "text-[var(--muted)]"}`}
+                className={`flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-xl text-[10px] font-medium transition active:scale-95 ${activeTab === id ? "text-[var(--accent)]" : "text-[var(--muted)]"}`}
                 aria-current={activeTab === id ? "page" : undefined}
               >
-                <Icon
-                  size={21}
-                  weight={activeTab === id ? "fill" : "regular"}
-                />
+                <span className={`grid h-7 min-w-10 place-items-center rounded-lg ${activeTab === id ? "bg-[var(--soft)]" : ""}`}>
+                  <Icon
+                    size={21}
+                    weight={activeTab === id ? "fill" : "regular"}
+                  />
+                </span>
                 {tx(zh, ko)}
               </button>
             ))}
@@ -1283,6 +1453,7 @@ export default function Home() {
           <div
             className="fixed inset-x-5 bottom-24 z-30 mx-auto max-w-[440px] rounded-lg bg-[var(--ink)] px-4 py-3 text-center text-sm font-semibold text-[var(--surface)] shadow-xl"
             role="status"
+            aria-live="polite"
           >
             {toast}
           </div>
@@ -1305,29 +1476,32 @@ export default function Home() {
                 onClick={closeOverlays}
               >
                 <div
-                  className="sheet mb-3 max-h-[90dvh] w-full max-w-[496px] overflow-y-auto rounded-xl bg-[var(--surface)] p-5 pb-[max(20px,env(safe-area-inset-bottom))] shadow-2xl"
+                  className="sheet mb-3 max-h-[90dvh] w-full max-w-[496px] overscroll-contain overflow-y-auto rounded-xl bg-[var(--surface)] p-5 pb-[max(20px,env(safe-area-inset-bottom))] shadow-2xl"
                   onClick={(event) => event.stopPropagation()}
                 >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <span className="text-xs font-semibold text-[var(--accent)]">
-                        {pick(language, guide.categoryZh, guide.categoryKo)} /{" "}
-                        {pick(language, guide.districtZh, guide.districtKo)}
-                      </span>
-                      <h2 className="mt-1 text-2xl font-semibold tracking-[-0.035em]">
-                        {pick(language, guide.titleZh, guide.titleKo)}
-                      </h2>
-                      <p className="mt-1 text-xs text-[var(--muted)]">
-                        {language === "ko" ? guide.titleZh : guide.titleKo}
-                      </p>
+                  <div className="sticky -top-5 z-10 -mx-5 -mt-5 bg-[var(--surface)]/96 px-5 pb-3 pt-2 backdrop-blur-xl">
+                    <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-[var(--line)]" aria-hidden="true" />
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <span className="text-xs font-semibold text-[var(--accent)]">
+                          {pick(language, guide.categoryZh, guide.categoryKo)} /{" "}
+                          {pick(language, guide.districtZh, guide.districtKo)}
+                        </span>
+                        <h2 className="mt-1 text-2xl font-semibold tracking-[-0.035em]">
+                          {pick(language, guide.titleZh, guide.titleKo)}
+                        </h2>
+                        <p className="mt-1 text-xs text-[var(--muted)]">
+                          {language === "ko" ? guide.titleZh : guide.titleKo}
+                        </p>
+                      </div>
+                      <button
+                        onClick={closeOverlays}
+                        className="grid size-11 shrink-0 place-items-center rounded-xl bg-[var(--field)] active:scale-95"
+                        aria-label={tx("关闭", "닫기")}
+                      >
+                        <X size={18} />
+                      </button>
                     </div>
-                    <button
-                      onClick={closeOverlays}
-                      className="grid size-9 shrink-0 place-items-center rounded-full bg-[var(--field)]"
-                      aria-label={tx("关闭", "닫기")}
-                    >
-                      <X size={18} />
-                    </button>
                   </div>
                   <div className="mt-5 grid grid-cols-3 gap-2 text-xs">
                     <span className="rounded-lg bg-[var(--field)] p-3">
@@ -1343,13 +1517,16 @@ export default function Home() {
                         size={16}
                         className="mb-2 text-[var(--accent)]"
                       />
-                      {guide.zh.length} / {guide.ko.length}
+                      {language === "ko"
+                        ? `${guide.ko.length}개 문단`
+                        : `${guide.zh.length} 段`}
                     </span>
                   </div>
                   <div className="mt-3 grid grid-cols-4 gap-2">
                     <button
                       onClick={() => toggleList("saved", selectedPlace.id)}
-                      className={`grid place-items-center gap-1 rounded-lg p-2 text-[10px] ${appState.saved.includes(selectedPlace.id) ? "bg-[var(--soft)] text-[var(--accent)]" : "bg-[var(--field)]"}`}
+                      aria-pressed={appState.saved.includes(selectedPlace.id)}
+                      className={`grid min-h-14 place-items-center gap-1 rounded-lg p-2 text-[11px] ${appState.saved.includes(selectedPlace.id) ? "bg-[var(--soft)] text-[var(--accent)]" : "bg-[var(--field)]"}`}
                     >
                       <BookmarkSimple
                         size={18}
@@ -1363,14 +1540,16 @@ export default function Home() {
                     </button>
                     <button
                       onClick={() => toggleList("visited", selectedPlace.id)}
-                      className={`grid place-items-center gap-1 rounded-lg p-2 text-[10px] ${appState.visited.includes(selectedPlace.id) ? "bg-[var(--soft)] text-[var(--accent)]" : "bg-[var(--field)]"}`}
+                      aria-pressed={appState.visited.includes(selectedPlace.id)}
+                      className={`grid min-h-14 place-items-center gap-1 rounded-lg p-2 text-[11px] ${appState.visited.includes(selectedPlace.id) ? "bg-[var(--soft)] text-[var(--accent)]" : "bg-[var(--field)]"}`}
                     >
                       <Footprints size={18} />
                       {tx("到访", "방문")}
                     </button>
                     <button
                       onClick={() => toggleList("plan", selectedPlace.id)}
-                      className={`grid place-items-center gap-1 rounded-lg p-2 text-[10px] ${appState.plan.includes(selectedPlace.id) ? "bg-[var(--soft)] text-[var(--accent)]" : "bg-[var(--field)]"}`}
+                      aria-pressed={appState.plan.includes(selectedPlace.id)}
+                      className={`grid min-h-14 place-items-center gap-1 rounded-lg p-2 text-[11px] ${appState.plan.includes(selectedPlace.id) ? "bg-[var(--soft)] text-[var(--accent)]" : "bg-[var(--field)]"}`}
                     >
                       <CalendarDots size={18} />
                       {tx("行程", "일정")}
@@ -1382,7 +1561,7 @@ export default function Home() {
                           pick(language, guide.tagZh, guide.tagKo),
                         )
                       }
-                      className="grid place-items-center gap-1 rounded-lg bg-[var(--field)] p-2 text-[10px]"
+                      className="grid min-h-14 place-items-center gap-1 rounded-lg bg-[var(--field)] p-2 text-[11px]"
                     >
                       <ShareNetwork size={18} />
                       {tx("分享", "공유")}
@@ -1392,7 +1571,7 @@ export default function Home() {
                     href={`https://uri.amap.com/search?keyword=${encodeURIComponent(selectedPlace.title)}&city=深圳&view=map&src=shenyou`}
                     target="_blank"
                     rel="noreferrer"
-                    className="mt-3 flex items-center justify-center gap-2 rounded-lg border border-[var(--line)] px-3 py-3 text-sm font-semibold"
+                    className="mt-3 flex min-h-12 items-center justify-center gap-2 rounded-lg bg-[var(--accent)] px-3 py-3 text-sm font-semibold text-[var(--accent-ink)] active:scale-[.99]"
                   >
                     <NavigationArrow size={17} weight="fill" />
                     {tx("地图导航", "지도 길찾기")}
@@ -1400,7 +1579,7 @@ export default function Home() {
                   <section className="mt-6">
                     <div className="flex items-center justify-between">
                       <h3 className="font-semibold">
-                        {tx("资料原文讲解", "자료 원문 해설")}
+                        {tx("景点介绍", "명소 소개")}
                       </h3>
                       <span className="text-xs text-[var(--muted)]">
                         {language === "ko" ? "한국어" : "中文"}
@@ -1410,7 +1589,7 @@ export default function Home() {
                       {shown.map((text, index) => (
                         <p
                           key={index}
-                          className="mt-3 text-sm leading-7 text-[var(--muted)]"
+                          className="mt-3 text-[15px] leading-8 text-[var(--muted)]"
                         >
                           {text}
                         </p>
@@ -1450,6 +1629,9 @@ export default function Home() {
                         "집합 장소, 해설 요점이나 느낌을 기록하세요",
                       )}
                     />
+                    <p className="mt-2 text-xs text-[var(--muted)]">
+                      {tx("内容会自动保存在本机", "내용은 기기에 자동 저장됩니다")}
+                    </p>
                   </section>
                 </div>
               </div>
@@ -1468,9 +1650,10 @@ export default function Home() {
                 onClick={closeOverlays}
               >
                 <div
-                  className="sheet mb-3 max-h-[88dvh] w-full max-w-[496px] overflow-y-auto rounded-xl bg-[var(--surface)] p-5 pb-[max(20px,env(safe-area-inset-bottom))] shadow-2xl"
+                  className="sheet mb-3 max-h-[88dvh] w-full max-w-[496px] overscroll-contain overflow-y-auto rounded-xl bg-[var(--surface)] p-5 pb-[max(20px,env(safe-area-inset-bottom))] shadow-2xl"
                   onClick={(event) => event.stopPropagation()}
                 >
+                  <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-[var(--line)]" aria-hidden="true" />
                   <div className="flex items-start justify-between">
                     <div>
                       <span className="text-xs font-semibold text-[var(--accent)]">
@@ -1483,7 +1666,8 @@ export default function Home() {
                     </div>
                     <button
                       onClick={closeOverlays}
-                      className="grid size-9 place-items-center rounded-full bg-[var(--field)]"
+                      className="grid size-11 place-items-center rounded-xl bg-[var(--field)] active:scale-95"
+                      aria-label={tx("关闭", "닫기")}
                     >
                       <X size={18} />
                     </button>
@@ -1508,6 +1692,12 @@ export default function Home() {
                             }
                             onClick={() => toggleRoutePlace(selectedRoute, id)}
                             className={`grid size-10 place-items-center rounded-full ${done ? "bg-[var(--accent)] text-[var(--accent-ink)]" : "border border-[var(--line)]"}`}
+                            aria-label={
+                              done
+                                ? tx("取消完成标记", "완료 표시 취소")
+                                : tx("标记为已完成", "완료로 표시")
+                            }
+                            aria-pressed={done}
                           >
                             {done ? (
                               <CheckCircle size={20} weight="fill" />
@@ -1588,21 +1778,23 @@ export default function Home() {
             onClick={closeOverlays}
           >
             <div
-              className="sheet mb-3 w-full max-w-[496px] rounded-xl bg-[var(--surface)] p-5 pb-[max(20px,env(safe-area-inset-bottom))] shadow-2xl"
+              className="sheet mb-3 max-h-[88dvh] w-full max-w-[496px] overscroll-contain overflow-y-auto rounded-xl bg-[var(--surface)] p-5 pb-[max(20px,env(safe-area-inset-bottom))] shadow-2xl"
               onClick={(event) => event.stopPropagation()}
             >
+              <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-[var(--line)]" aria-hidden="true" />
               <div className="flex items-start justify-between">
                 <div>
                   <span className="text-xs font-semibold text-[var(--accent)]">
                     SHENYOU
                   </span>
                   <h2 className="mt-1 text-2xl font-semibold">
-                    {tx("本地 APP 设置", "로컬 앱 설정")}
+                    {tx("应用与数据", "앱과 데이터")}
                   </h2>
                 </div>
                 <button
                   onClick={closeOverlays}
-                  className="grid size-9 place-items-center rounded-full bg-[var(--field)]"
+                  className="grid size-11 place-items-center rounded-xl bg-[var(--field)] active:scale-95"
+                  aria-label={tx("关闭", "닫기")}
                 >
                   <X size={18} />
                 </button>
@@ -1610,7 +1802,7 @@ export default function Home() {
               <div className="mt-5 grid gap-2">
                 <button
                   onClick={installApp}
-                  className="flex items-center gap-3 rounded-xl bg-[var(--field)] p-4 text-left"
+                  className="flex min-h-16 items-center gap-3 rounded-xl bg-[var(--field)] p-4 text-left active:scale-[.99]"
                 >
                   <DownloadSimple size={20} className="text-[var(--accent)]" />
                   <span>
@@ -1622,7 +1814,7 @@ export default function Home() {
                 </button>
                 <button
                   onClick={exportData}
-                  className="flex items-center gap-3 rounded-xl bg-[var(--field)] p-4 text-left"
+                  className="flex min-h-16 items-center gap-3 rounded-xl bg-[var(--field)] p-4 text-left active:scale-[.99]"
                 >
                   <DownloadSimple size={20} className="text-[var(--accent)]" />
                   <b className="text-sm">
@@ -1631,7 +1823,7 @@ export default function Home() {
                 </button>
                 <button
                   onClick={() => importRef.current?.click()}
-                  className="flex items-center gap-3 rounded-xl bg-[var(--field)] p-4 text-left"
+                  className="flex min-h-16 items-center gap-3 rounded-xl bg-[var(--field)] p-4 text-left active:scale-[.99]"
                 >
                   <UploadSimple size={20} className="text-[var(--accent)]" />
                   <b className="text-sm">
@@ -1643,11 +1835,14 @@ export default function Home() {
                   type="file"
                   accept="application/json"
                   hidden
-                  onChange={(event) => importData(event.target.files?.[0])}
+                  onChange={(event) => {
+                    importData(event.target.files?.[0]);
+                    event.currentTarget.value = "";
+                  }}
                 />
                 <button
                   onClick={clearLocalData}
-                  className="flex items-center gap-3 rounded-xl bg-[var(--field)] p-4 text-left text-[var(--muted)]"
+                  className="flex min-h-16 items-center gap-3 rounded-xl bg-[var(--field)] p-4 text-left text-[var(--muted)] active:scale-[.99]"
                 >
                   <Trash size={20} />
                   <b className="text-sm">

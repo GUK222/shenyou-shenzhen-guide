@@ -1,4 +1,4 @@
-const CACHE_NAME = "shenyou-v4";
+const CACHE_NAME = "shenyou-v5";
 const BASE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, "");
 const ROOT_PATH = `${BASE_PATH}/`;
 const APP_SHELL = [ROOT_PATH, `${BASE_PATH}/manifest.webmanifest`, `${BASE_PATH}/favicon.svg`, `${BASE_PATH}/images/riverside.png`, `${BASE_PATH}/og.png`];
